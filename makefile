@@ -49,3 +49,4 @@ iso: kernel
 	-o $(OUTPUT_FOLDER)/OS2023.iso      \
 	$(OUTPUT_FOLDER)/iso
 	@rm -r $(OUTPUT_FOLDER)/iso/
+	@rm -r $(OUTPUT_FOLDER)/*.o
