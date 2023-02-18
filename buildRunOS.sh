@@ -1,3 +1,3 @@
 #!/bin/bash
-make builds
+make build
 ./runOS.sh
