@@ -34,7 +34,7 @@ loader:                                        ; the loader label (defined as en
 enter_protected_mode:
     cli
     mov  eax, [esp+4]
-    lgdt [gdtr]
+    lgdt [eax]
     mov  eax, cr0
     or al, 1
     mov  cr0, eax
@@ -44,9 +44,8 @@ enter_protected_mode:
     jmp 0x8:flush_cs
 flush_cs:
     mov ax, 10h
-    mov ss, 0x10
-    mov ds, 0x10
-    mov es, 0x10
+    mov es, ax
+    mov ds, ax
     mov ss, ax
 
     ret
