@@ -52,4 +52,3 @@ iso: kernel
 	$(OUTPUT_FOLDER)/iso
 	@rm -r $(OUTPUT_FOLDER)/iso/
 	@rm $(OUTPUT_FOLDER)/*.o
-	@rm $(OUTPUT_FOLDER)/kernel
