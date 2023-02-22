@@ -26,6 +26,7 @@ extern struct GDTR _gdt_gdtr;
  * @param G            1-bit contain granularity
  * @param base_high    8-bit high-bit base address
  */
+
 struct SegmentDescriptor {
     // First 32-bit
     uint16_t segment_low;
