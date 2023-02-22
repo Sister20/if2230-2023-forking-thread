@@ -64,6 +64,6 @@ struct GlobalDescriptorTable global_descriptor_table = {
 struct GDTR _gdt_gdtr = {
     // TODO : Implement, this GDTR will point to global_descriptor_table. 
     //        Use sizeof operator
-    .size = sizeof(global_descriptor_table),
+    .size = sizeof(global_descriptor_table)-1,
     .address = &global_descriptor_table
 };
