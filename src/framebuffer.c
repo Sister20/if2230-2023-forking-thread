@@ -16,17 +16,16 @@ void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg)
     // Set framebuffer character and color with corresponding parameter values.
     uint16_t attrib = (bg << 4) | (fg & 0x0F);
     volatile uint16_t * location;
-    location = (volatile uint16_t *)0xB8000 + (row * 80 + col);
+    location = (volatile uint16_t *)MEMORY_FRAMEBUFFER + (row * 80 + col);
     *location = c | (attrib << 8);
 }
 
 void framebuffer_clear(void) {
     // Set all cell in framebuffer character to 0x00 (empty character)
     // and color to 0x07 (gray character & black background)
-    memset(MEMORY_FRAMEBUFFER, 0x00, 80*25);
-    for(int i = 0; i < 80 * 25; i++){
-        if(i % 2 != 0){
-            memset(MEMORY_FRAMEBUFFER + i, 0x07, 1);
+    for(int i = 0; i < 25; i++){
+        for(int j = 0; j < 80; j++){
+            framebuffer_write(i, j, 0x00, 0x7, 0x0);
         }
     }
 }
