@@ -1,6 +1,8 @@
 {
     "debug.onTaskErrors": "debugAnyway",
     "files.associations": {
-        "framebuffer.h": "c"
+        "framebuffer.h": "c",
+        "*.h": "c"
     },
+    "C_Cpp.errorSquiggles": "enabled",
 }

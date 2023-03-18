@@ -6,7 +6,7 @@
  * Initial IDTGate already set properly according to IDT definition in Intel Manual & OSDev.
  * Table entry : [...].
  */
-struct InteruptDescriptorTable interupt_descriptor_table = {
+struct InteruptDescriptorTable interrupt_descriptor_table = {
     .table = {
     }
 };
@@ -17,8 +17,8 @@ struct InteruptDescriptorTable interupt_descriptor_table = {
  * From: IDTR.size is IDT size minus 1.
  */
 struct IDTR _idt_gdtr = {
-    .size = sizeof(interupt_descriptor_table) - 1,
-    .address = &interupt_descriptor_table
+    .size = sizeof(interrupt_descriptor_table) - 1,
+    .address = &interrupt_descriptor_table
 };
 
 void initialize_idt(void) {
@@ -31,6 +31,12 @@ void initialize_idt(void) {
    * Segment: GDT_KERNEL_CODE_SEGMENT_SELECTOR
    * Privilege: 0
    */
+
+  for (int i = 0; i < 64; i++)
+  {
+    set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0);
+  }
+
     __asm__ volatile("lidt %0" : : "m"(_idt_idtr));
     __asm__ volatile("sti");
 }
@@ -39,6 +45,11 @@ void set_interrupt_gate(uint8_t int_vector, void *handler_address, uint16_t gdt_
     struct IDTGate *idt_int_gate = &interrupt_descriptor_table.table[int_vector];
     // TODO : Set handler offset, privilege & segment
 
+    idt_int_gate->offset_low = (uint16_t)((uint32_t)handler_address & 0xFFFF);
+    idt_int_gate->offset_high = (uint16_t)((uint32_t)handler_address & 0xFFFF0000);
+    idt_int_gate->offset_low = handler_address;
+    idt_int_gate->segment = gdt_seg_selector;
+    idt_int_gate->dpl = privilege;
     // Target system 32-bit and flag this as valid interrupt gate
     idt_int_gate->_r_bit_1    = INTERRUPT_GATE_R_BIT_1;
     idt_int_gate->_r_bit_2    = INTERRUPT_GATE_R_BIT_2;
