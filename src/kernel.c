@@ -12,6 +12,7 @@ void kernel_setup(void)
     pic_remap();
     initialize_idt();
     framebuffer_clear();
+    framebuffer_write_row(3, 8, "Hai!", 0, 0xF);
     framebuffer_set_cursor(0, 0);
     __asm__("int $0x4");
     while (TRUE);
@@ -28,5 +29,5 @@ void kernel_setup(void)
     // framebuffer_write_row(10, 8, "And we'll ready to be forkin' all over the place", 0, 0xF);
     // framebuffer_set_cursor(3, 7);
     // while (TRUE)
-        ;
+    //     ;
 }
