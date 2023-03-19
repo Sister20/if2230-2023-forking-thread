@@ -23,7 +23,7 @@ const char keyboard_scancode_1_to_ascii_map[256] = {
       0,    0,   0,   0,   0,   0,   0,   0,    0,   0,   0,    0,    0,   0,    0,    0,
 };
 
-struct KeyboardDriverState keyboard_state = {
+static struct KeyboardDriverState keyboard_state = {
     .read_extended_mode = FALSE,
     .keyboard_input_on = FALSE,
     .buffer_index = 0,
