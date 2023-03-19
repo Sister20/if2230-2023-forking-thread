@@ -20,7 +20,7 @@ struct InteruptDescriptorTable interrupt_descriptor_table = {
  */
 struct IDTR _idt_idtr = {
     .size = sizeof(interrupt_descriptor_table) - 1,
-    .address = &interrupt_descriptor_table
+    .address = &interrupt_descriptor_table,
 };
 
 void initialize_idt(void) {
@@ -46,9 +46,8 @@ void initialize_idt(void) {
 void set_interrupt_gate(uint8_t int_vector, void *handler_address, uint16_t gdt_seg_selector, uint8_t privilege) {
     struct IDTGate *idt_int_gate = &interrupt_descriptor_table.table[int_vector];
     // TODO : Set handler offset, privilege & segment
-
     idt_int_gate->offset_low = (uint16_t)((uint32_t)handler_address & 0xFFFF);
-    idt_int_gate->offset_high = (uint16_t)((uint32_t)handler_address & 0xFFFF0000 >> 16);
+    idt_int_gate->offset_high = (uint16_t)(((uint32_t)handler_address & 0xFFFF0000) >> 16);
     idt_int_gate->segment = gdt_seg_selector;
     idt_int_gate->dpl = privilege;
     idt_int_gate->reserved = 0;

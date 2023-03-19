@@ -26,7 +26,7 @@ const char keyboard_scancode_1_to_ascii_map[256] = {
 static struct KeyboardDriverState keyboard_state = {
     .read_extended_mode = FALSE,
     .keyboard_input_on = FALSE,
-    .buffer_index = 0,
+    .buffer_index = 0x0,
     .keyboard_buffer = {},
 };
 
@@ -34,6 +34,7 @@ static struct KeyboardDriverState keyboard_state = {
 
 // Activate keyboard ISR / start listen keyboard & save to buffer
 void keyboard_state_activate(void){
+    activate_keyboard_interrupt();
     keyboard_state.keyboard_input_on = TRUE;
 }
 
@@ -68,41 +69,74 @@ bool is_keyboard_blocking(void){
 void keyboard_isr(void) {
     if (!is_keyboard_blocking()){
       keyboard_state.buffer_index = 0;
-    }
-    else {
+    } else {
         uint8_t  scancode    = in(KEYBOARD_DATA_PORT);
         char     mapped_char = keyboard_scancode_1_to_ascii_map[scancode];
         // TODO : Implement scancode processing
+
+        // Getting position cursor
         uint16_t position_cursor = get_cursor_position();
         uint8_t row = position_cursor / 80;
         uint8_t col = position_cursor % 80;
-        if(mapped_char == '\b'){
-          if(keyboard_state.buffer_index != 0){
-            keyboard_state.buffer_index--;
-            keyboard_state.keyboard_buffer[keyboard_state.buffer_index] = 0x00;
-            framebuffer_write(row, col, 0x00, 0x7, 0x0);
-            if(col > 0){
-              framebuffer_set_cursor(row, col-1);
-            } else if(row > 0) {
-              framebuffer_set_cursor(row-1, col);
-            } else {
-              // Do nothing
+
+        // Validate if its a printable character + avoid break interrupt
+        if(mapped_char != '\0'){
+          // If backspace is pressed
+          if(mapped_char == '\b'){
+            // Getting current framebuffer address
+            volatile uint16_t *location;
+            location = (volatile uint16_t *)MEMORY_FRAMEBUFFER + (row * 80 + col);
+
+            // If buffer index hasn't reached 0
+            if(keyboard_state.buffer_index != 0){
+              // Remove buffer element
+              keyboard_state.buffer_index--;
+              keyboard_state.keyboard_buffer[keyboard_state.buffer_index] = 0x00;
+
+              // Make sure to delete the previous printable character
+              while(!(*location & 0x00FF)){
+                if(col > 0){
+                  col--;
+                } else if(row > 0){
+                  row--;
+                  col = 79;
+                } else{
+                  break;
+                }
+                location--;
+              }
+
+              // Delete output and move cursor backwards
+              framebuffer_write(row, col, 0x00, 0x7, 0x0);
+              framebuffer_set_cursor(row, col);
             }
+          } else if (mapped_char == '\n'){
+            // If enter is pressed
+            if(row < 24){
+              // Move cursor to newline
+              framebuffer_set_cursor(row + 1, 0);
+            }
+
+            // Deactivate keyboard input
+            keyboard_state_deactivate();
           } else {
-            // Do nothing
-          }
-        } else if (mapped_char == '\n'){
-          keyboard_state_deactivate();
-        } else {
-          keyboard_state.keyboard_buffer[keyboard_state.buffer_index] = mapped_char;
-          framebuffer_write(row, col, mapped_char, 0xF, 0);
-          keyboard_state.buffer_index++;
-          if(col < 80){
-            framebuffer_set_cursor(row, col + 1);
-          } else if(row < 25) {
-            framebuffer_set_cursor(row + 1, col);
-          } else {
-            // Do Nothing
+            // If any other printable character is pressed
+
+            // Save to buffer and write to framebuffer
+            keyboard_state.keyboard_buffer[keyboard_state.buffer_index] = mapped_char;
+            framebuffer_write(row, col, mapped_char, 0xF, 0);
+
+            // Increment keyboard buffer index
+            keyboard_state.buffer_index++;
+
+            // Handle wrapping behaviour
+            if(col < 80){
+              framebuffer_set_cursor(row, col + 1);
+            } else if(row < 25) {
+              framebuffer_set_cursor(row + 1, col);
+            } else {
+              // Do Nothing
+            }
           }
         }
     }

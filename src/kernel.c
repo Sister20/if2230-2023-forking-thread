@@ -17,17 +17,15 @@ void kernel_setup(void)
     while (TRUE){
         keyboard_state_activate();
     }
-    
     /*
     enter_protected_mode(&_gdt_gdtr);
     pic_remap();
     initialize_idt();
     framebuffer_clear();
     framebuffer_set_cursor(0, 0);
-    __asm__("int $0x4");
+    __asm__("int $0x21");
     while (TRUE);
     */
-    
 
     // enter_protected_mode(&_gdt_gdtr);
     // framebuffer_clear();

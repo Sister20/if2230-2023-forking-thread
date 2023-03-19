@@ -2,6 +2,7 @@
 #include "lib-header/interrupt.h"
 #include "lib-header/portio.h"
 #include "lib-header/framebuffer.h"
+#include "lib-header/keyboard.h"
 
 void io_wait(void) {
     out(0x80, 0);
@@ -50,7 +51,9 @@ void main_interrupt_handler(
     __attribute__((unused)) struct InterruptStack info
 ) {
     switch (int_number) {
-
+        case 0x21:
+            keyboard_isr();
+            break;
     }
 }
 
