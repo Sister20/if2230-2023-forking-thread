@@ -54,4 +54,6 @@ void framebuffer_set_cursor(uint8_t r, uint8_t c);
  */
 void framebuffer_clear(void);
 
+uint16_t get_cursor_position(void);
+
 #endif

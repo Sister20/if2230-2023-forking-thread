@@ -5,17 +5,29 @@
 #include "lib-header/kernel_loader.h"
 #include "lib-header/interrupt.h"
 #include "lib-header/idt.h"
+#include "lib-header/keyboard.h"
 
 void kernel_setup(void)
-{
+{   
     enter_protected_mode(&_gdt_gdtr);
     pic_remap();
     initialize_idt();
     framebuffer_clear();
-    framebuffer_write_row(3, 8, "Hai!", 0, 0xF);
+    framebuffer_set_cursor(0, 0);
+    while (TRUE){
+        keyboard_state_activate();
+    }
+    
+    /*
+    enter_protected_mode(&_gdt_gdtr);
+    pic_remap();
+    initialize_idt();
+    framebuffer_clear();
     framebuffer_set_cursor(0, 0);
     __asm__("int $0x4");
     while (TRUE);
+    */
+    
 
     // enter_protected_mode(&_gdt_gdtr);
     // framebuffer_clear();

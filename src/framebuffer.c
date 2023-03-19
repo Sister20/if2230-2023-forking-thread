@@ -47,3 +47,13 @@ void framebuffer_clear(void)
         }
     }
 }
+
+uint16_t get_cursor_position(void)
+{
+    uint16_t pos = 0;
+    out(0x3D4, 0x0F);
+    pos |= in(0x3D5);
+    out(0x3D4, 0x0E);
+    pos |= ((uint16_t)in(0x3D5)) << 8;
+    return pos;
+}

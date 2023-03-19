@@ -1,6 +1,7 @@
 #include "lib-header/stdtype.h"
 #include "lib-header/interrupt.h"
 #include "lib-header/portio.h"
+#include "lib-header/framebuffer.h"
 
 void io_wait(void) {
     out(0x80, 0);
@@ -53,3 +54,7 @@ void main_interrupt_handler(
     }
 }
 
+void activate_keyboard_interrupt(void) {
+    out(PIC1_DATA, PIC_DISABLE_ALL_MASK ^ (1 << IRQ_KEYBOARD));
+    out(PIC2_DATA, PIC_DISABLE_ALL_MASK);
+}
