@@ -1,8 +1,10 @@
 # Forking Thread
 
-Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _of_ dosen OS) 😎. Nama sistem operasi kami terinspirasi dari salah satu kelas Pak Imam di mana beliau mengajarkan kami tentang _the magical world of_ bikin _thread_ baru dengan `fork()`.
+Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _of_ dosen OS). 😎
+Nama sistem operasi kami terinspirasi dari salah satu kelas Pak Imam di mana beliau mengajarkan kami tentang _the magical world of_ bikin _thread_ baru dengan `fork()`.
+Membuat sistem operasi itu tidak mudah, dan kami punya sejuta terimakasih untuk para pendahulu yang membuat kami bisa berdiri di bahu raksasa dalam membuat Forking Thread. 🙏
 
-# (Future) OS Engineers 🖥️
+## (Future) OS Engineers 🖥️
 
 - Fatih Nararya Rashaydfa Ilhamsyah - 13521060
 - Michael Jonathan H. - 13521124
@@ -10,7 +12,7 @@ Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _o
 - Johannes Lee - 13521148
 - I Putu Bakta Hari Sudewa - 13521150
 
-# Feature Roadmaps 🗺️
+## Feature Roadmaps 🗺️
 
 - [x] Running OS with QEMU 🏃
 - [x] Framebuffer 🖼️
@@ -19,5 +21,5 @@ Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _o
 - [x] Interrupt :cloud_with_lightning:
 - [x] Keyboard Device Driver ⌨️
 - [ ] FAT32 Filesystem 🗄️
-- [ ] And many more things beyond your imagination... 🌈
+- [ ] And many more things beyond your imagination 🌈
 - [ ] Laporan 🤢 🤮
