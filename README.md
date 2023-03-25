@@ -10,7 +10,7 @@ Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _o
 - Johannes Lee - 13521148
 - I Putu Bakta Hari Sudewa - 13521150
 
-# Feature Roadmaps
+# Feature Roadmaps 🗺️
 
 - [x] Running OS with QEMU 🏃
 - [x] Framebuffer 🖼️
