@@ -1,8 +1,8 @@
 # Forking Thread
 
-Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the GOAT_ of dosen OS) 😎. Nama sistem operasi kami terinspirasi dari salah satu kelas Pak Imam di mana beliau mengajarkan kami tentang _the magical world of_ bikin _thread_ baru dengan `fork()`.
+Sistem Operasi buatan ~~simp~~ anak-anak teladan didikan Pak Imam (_the_ 🐐 _of_ dosen OS) 😎. Nama sistem operasi kami terinspirasi dari salah satu kelas Pak Imam di mana beliau mengajarkan kami tentang _the magical world of_ bikin _thread_ baru dengan `fork()`.
 
-# (Future) OS Engineers
+# (Future) OS Engineers 🖥️
 
 - Fatih Nararya Rashaydfa Ilhamsyah - 13521060
 - Michael Jonathan H. - 13521124
