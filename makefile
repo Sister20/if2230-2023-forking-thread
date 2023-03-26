@@ -60,7 +60,7 @@ iso: kernel
 	-input-charset utf8        			\
 	-quiet                     			\
 	-boot-info-table           			\
-	-o $(OUTPUT_FOLDER)/OS2023.iso      \
+	-o $(OUTPUT_FOLDER)/$(ISO_NAME).iso \
 	$(OUTPUT_FOLDER)/iso
 	@rm -r $(OUTPUT_FOLDER)/iso/
 	@rm $(OUTPUT_FOLDER)/*.o
