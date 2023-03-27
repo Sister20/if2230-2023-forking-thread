@@ -1,7 +1,6 @@
 #include "lib-header/stdtype.h"
 #include "lib-header/fat32.h"
 #include "lib-header/stdmem.h"
-#include <stdio.h>
 
 const uint8_t fs_signature[BLOCK_SIZE] = {
     'C',
@@ -90,12 +89,13 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
 
 void create_fat32(void)
 {
-    FILE *storage = fopen("storage.bin", "w+");
-    fwrite(&fs_signature, 1, BLOCK_SIZE, storage);
-    fclose(storage);
 }
 
 void initialize_filesystem_fat32(void)
 {
     create_fat32();
+}
+
+bool is_empty_storage()
+{
 }
