@@ -277,7 +277,9 @@ int8_t write(struct FAT32DriverRequest request)
   bool is_creating_directory = request.buffer_size == 0;
 
   // Iterate through the directory entries and find empty entry
-  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
+  bool found_empty_entry = FALSE;
+  uint8_t index_of_empty_entry = 0;
+  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !found_empty_entry;
        i++)
   {
 
@@ -285,56 +287,66 @@ int8_t write(struct FAT32DriverRequest request)
         &(driver_state.dir_table_buf.table[i]);
 
     // Skip attempting to write if it's not empty
-    if (!is_dir_empty(entry))
+    found_empty_entry = is_dir_empty(entry);
+    if (found_empty_entry)
     {
-      continue;
+      index_of_empty_entry = i;
     }
-    // Create a directory
-    if (is_creating_directory)
-    {
-      driver_state.fat_table.cluster_map[i] = FAT32_FAT_END_OF_FILE;
-      memcpy(entry->name, request.name, 8);
-      entry->filesize = request.buffer_size;
-      entry->cluster_high = (uint16_t)new_cluster_number >> 16;
-      entry->cluster_low = (uint16_t)new_cluster_number & 0x0000FFFF;
-      entry->attribute = (uint8_t)ATTR_SUBDIRECTORY;
-      entry->user_attribute = (uint8_t)UATTR_NOT_EMPTY;
-      struct FAT32DirectoryTable new_directory;
-      init_directory_table(&new_directory, request.name,
-                           request.parent_cluster_number);
-      write_clusters(&new_directory, new_cluster_number, 1);
-      write_clusters(&driver_state.fat_table, 1, 1);
-      return 0;
-    }
+  }
 
-    // Create a file
-    int required_clusters = request.buffer_size / CLUSTER_SIZE;
-    required_clusters += required_clusters % 2 == 0 ? 0 : 1;
+  if (!found_empty_entry)
+  {
+    return -1;
+  }
 
-    for (int i = 0; i < required_clusters; i++)
-    {
-      write_clusters(request.buf, new_cluster_number, 1);
-      uint32_t old_cluster_number = new_cluster_number;
-      for (int j = i + 1; j < CLUSTER_MAP_SIZE; j++)
-      {
-        // Check if the cluster is empty
-        if (driver_state.fat_table.cluster_map[j] == 0)
-        {
-          new_cluster_number = j;
-          break;
-        }
-      }
-      driver_state.fat_table.cluster_map[old_cluster_number] =
-          new_cluster_number;
-      memcpy(entry->name, request.name, 8);
-      entry->filesize = request.buffer_size;
-      entry->cluster_high = new_cluster_number >> 16;
-      entry->cluster_low = new_cluster_number & 0x0000FFFF;
-      entry->user_attribute = UATTR_NOT_EMPTY;
-    }
+  struct FAT32DirectoryEntry *target_entry =
+      &(driver_state.dir_table_buf.table[index_of_empty_entry]);
+
+  // Create a directory
+  if (is_creating_directory)
+  {
+    driver_state.fat_table.cluster_map[new_cluster_number] = FAT32_FAT_END_OF_FILE;
+    memcpy(target_entry->name, request.name, 8);
+    target_entry->filesize = request.buffer_size;
+    target_entry->cluster_high = (uint16_t)new_cluster_number >> 16;
+    target_entry->cluster_low = (uint16_t)new_cluster_number & 0x0000FFFF;
+    target_entry->attribute = (uint8_t)ATTR_SUBDIRECTORY;
+    target_entry->user_attribute = (uint8_t)UATTR_NOT_EMPTY;
+    struct FAT32DirectoryTable new_directory;
+    init_directory_table(&new_directory, request.name,
+                         request.parent_cluster_number);
+    write_clusters(&new_directory, new_cluster_number, 1);
     write_clusters(&driver_state.fat_table, 1, 1);
     return 0;
   }
+
+  // Create a file
+  int required_clusters = request.buffer_size / CLUSTER_SIZE;
+  required_clusters += required_clusters % 2 == 0 ? 0 : 1;
+
+  for (int i = 0; i < required_clusters; i++)
+  {
+    write_clusters(request.buf, new_cluster_number, 1);
+    uint32_t old_cluster_number = new_cluster_number;
+    for (int j = i + 1; j < CLUSTER_MAP_SIZE; j++)
+    {
+      // Check if the cluster is empty
+      if (driver_state.fat_table.cluster_map[j] == 0)
+      {
+        new_cluster_number = j;
+        break;
+      }
+    }
+    driver_state.fat_table.cluster_map[old_cluster_number] =
+        new_cluster_number;
+    memcpy(target_entry->name, request.name, 8);
+    target_entry->filesize = request.buffer_size;
+    target_entry->cluster_high = new_cluster_number >> 16;
+    target_entry->cluster_low = new_cluster_number & 0x0000FFFF;
+    target_entry->user_attribute = UATTR_NOT_EMPTY;
+  }
+  write_clusters(&driver_state.fat_table, 1, 1);
+  return 0;
 }
 
 int8_t delete(struct FAT32DriverRequest request)
