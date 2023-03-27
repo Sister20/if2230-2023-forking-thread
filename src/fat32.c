@@ -142,3 +142,10 @@ void read_clusters(void *ptr, uint32_t cluster_number, uint8_t cluster_count)
     uint8_t block_count = cluster_count * CLUSTER_BLOCK_COUNT;
     write_blocks(ptr, logical_block_address, block_count);
 }
+
+void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name, uint32_t parent_dir_cluster)
+{
+    memcpy(dir_table->table[0].name, name, 8);
+    dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
+    dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
+}
