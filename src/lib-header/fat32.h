@@ -241,4 +241,16 @@ bool is_subdirectory(struct FAT32DirectoryEntry *entry);
 
 int ceil(int a, int b);
 
+void create_subdirectory_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+
+void create_file_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+
+bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry);
+
+void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+
+void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+
+void read_file_by_entry(struct FAT32DirectoryEntry *entry, uint8_t index_in_directory_entry, struct FAT32DriverRequest req);
+
 #endif
