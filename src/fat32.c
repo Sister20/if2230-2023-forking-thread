@@ -111,6 +111,11 @@ void create_fat32(void)
     driver_state.fat_table.cluster_map[i] = 0;
   }
   write_clusters(&driver_state.fat_table, 1, 1);
+
+  // Initialize root directory
+  struct FAT32DirectoryTable root;
+  init_directory_table(&root, "root", 2);
+  write_clusters(&root, 2 , 1);
 }
 
 void initialize_filesystem_fat32(void)
@@ -166,7 +171,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
     struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
 
     // Check if the entry matches the requested name and is not empty. If it's not satisfied, skip.
-    if (!(is_directory_empty(entry) &&
+    if (!(is_dir_empty(entry) &&
           is_dir_name_same(entry, request)))
     {
       continue;
