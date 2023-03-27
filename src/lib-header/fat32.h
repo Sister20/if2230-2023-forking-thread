@@ -36,9 +36,8 @@
 extern const uint8_t fs_signature[BLOCK_SIZE];
 
 // Cluster buffer data type - @param buf Byte buffer with size of CLUSTER_SIZE
-struct ClusterBuffer
-{
-    uint8_t buf[CLUSTER_SIZE];
+struct ClusterBuffer {
+  uint8_t buf[CLUSTER_SIZE];
 } __attribute__((packed));
 
 /* -- FAT32 Data Structures -- */
@@ -48,19 +47,22 @@ struct ClusterBuffer
  *
  * @param cluster_map Containing cluster map of FAT32
  */
-struct FAT32FileAllocationTable
-{
-    uint32_t cluster_map[CLUSTER_MAP_SIZE];
+struct FAT32FileAllocationTable {
+  uint32_t cluster_map[CLUSTER_MAP_SIZE];
 } __attribute__((packed));
 
 /**
- * FAT32 standard 8.3 format - 32 bytes DirectoryEntry, Some detail can be found at:
- * https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system#Directory_entry, and click show table.
+ * FAT32 standard 8.3 format - 32 bytes DirectoryEntry, Some detail can be found
+ * at:
+ * https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system#Directory_entry,
+ * and click show table.
  *
  * @param name           Entry name
  * @param ext            File extension
- * @param attribute      Will be used exclusively for subdirectory flag / determining this entry is file or folder
- * @param user_attribute If this attribute equal with UATTR_NOT_EMPTY then entry is not empty
+ * @param attribute      Will be used exclusively for subdirectory flag /
+ * determining this entry is file or folder
+ * @param user_attribute If this attribute equal with UATTR_NOT_EMPTY then entry
+ * is not empty
  *
  * @param undelete       Unused / optional
  * @param create_time    Unused / optional
@@ -71,27 +73,27 @@ struct FAT32FileAllocationTable
  * @param modified_time  Unused / optional
  * @param modified_date  Unused / optional
  * @param cluster_low    Lower 16-bit of cluster number
- * @param filesize       Filesize of this file, if this is directory / folder, filesize is 0
+ * @param filesize       Filesize of this file, if this is directory / folder,
+ * filesize is 0
  */
-struct FAT32DirectoryEntry
-{
-    char name[8];
-    char ext[3];
-    uint8_t attribute;
-    uint8_t user_attribute;
+struct FAT32DirectoryEntry {
+  char name[8];
+  char ext[3];
+  uint8_t attribute;
+  uint8_t user_attribute;
 
-    bool undelete;
-    uint16_t create_time;
-    uint16_t create_date;
-    uint16_t access_date;
-    uint16_t modified_time;
-    uint16_t modified_date;
+  bool undelete;
+  uint16_t create_time;
+  uint16_t create_date;
+  uint16_t access_date;
+  uint16_t modified_time;
+  uint16_t modified_date;
 
-    uint16_t cluster_high;
-    uint16_t cluster_low;
-    uint16_t n_of_occupied_cluster;
+  uint16_t cluster_high;
+  uint16_t cluster_low;
+  uint16_t n_of_occupied_cluster;
 
-    uint32_t filesize;
+  uint32_t filesize;
 
 } __attribute__((packed));
 
@@ -100,10 +102,10 @@ struct FAT32DirectoryEntry
  * @param table Table of DirectoryEntry that span within 1 cluster
  * @param n_of_entry The number of entry in the table
  */
-struct FAT32DirectoryTable
-{
-    struct FAT32DirectoryEntry table[CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)];
-    uint8_t n_of_entry;
+struct FAT32DirectoryTable {
+  struct FAT32DirectoryEntry
+      table[CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)];
+  uint8_t n_of_entry;
 } __attribute__((packed));
 
 /* -- FAT32 Driver -- */
@@ -111,15 +113,15 @@ struct FAT32DirectoryTable
 /**
  * FAT32DriverState - Contain all driver states
  *
- * @param fat_table     FAT of the system, will be loaded during initialize_filesystem_fat32()
+ * @param fat_table     FAT of the system, will be loaded during
+ * initialize_filesystem_fat32()
  * @param dir_table_buf Buffer for directory table
  * @param cluster_buf   Buffer for cluster
  */
-struct FAT32DriverState
-{
-    struct FAT32FileAllocationTable fat_table;
-    struct FAT32DirectoryTable dir_table_buf;
-    struct ClusterBuffer cluster_buf;
+struct FAT32DriverState {
+  struct FAT32FileAllocationTable fat_table;
+  struct FAT32DirectoryTable dir_table_buf;
+  struct ClusterBuffer cluster_buf;
 } __attribute__((packed));
 
 /**
@@ -128,16 +130,17 @@ struct FAT32DriverState
  * @param buf                   Pointer pointing to buffer
  * @param name                  Name for directory entry
  * @param ext                   Extension for file
- * @param parent_cluster_number Parent directory cluster number, for updating metadata
- * @param buffer_size           Buffer size, CRUD operation will have different behaviour with this attribute
+ * @param parent_cluster_number Parent directory cluster number, for updating
+ * metadata
+ * @param buffer_size           Buffer size, CRUD operation will have different
+ * behaviour with this attribute
  */
-struct FAT32DriverRequest
-{
-    void *buf;
-    char name[8];
-    char ext[3];
-    uint32_t parent_cluster_number;
-    uint32_t buffer_size;
+struct FAT32DriverRequest {
+  void *buf;
+  char name[8];
+  char ext[3];
+  uint32_t parent_cluster_number;
+  uint32_t buffer_size;
 } __attribute__((packed));
 
 /* -- Driver Interfaces -- */
@@ -157,7 +160,8 @@ uint32_t cluster_to_lba(uint32_t cluster);
  * @param name               8-byte char for directory name
  * @param parent_dir_cluster Parent directory cluster number
  */
-void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name, uint32_t parent_dir_cluster);
+void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
+                          uint32_t parent_dir_cluster);
 
 /**
  * Checking whether filesystem signature is missing or not in boot sector
@@ -174,8 +178,9 @@ bool is_empty_storage(void);
 void create_fat32(void);
 
 /**
- * Initialize file system driver state, if is_empty_storage() then create_fat32()
- * Else, read and cache entire FileAllocationTable (located at cluster number 1) into driver state
+ * Initialize file system driver state, if is_empty_storage() then
+ * create_fat32() Else, read and cache entire FileAllocationTable (located at
+ * cluster number 1) into driver state
  */
 void initialize_filesystem_fat32(void);
 
@@ -185,9 +190,11 @@ void initialize_filesystem_fat32(void);
  *
  * @param ptr            Pointer to source data
  * @param cluster_number Cluster number to write
- * @param cluster_count  Cluster count to write, due limitation of write_blocks block_count 255 => max cluster_count = 63
+ * @param cluster_count  Cluster count to write, due limitation of write_blocks
+ * block_count 255 => max cluster_count = 63
  */
-void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_count);
+void write_clusters(const void *ptr, uint32_t cluster_number,
+                    uint8_t cluster_count);
 
 /**
  * Read cluster operation, wrapper for read_blocks().
@@ -195,7 +202,8 @@ void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_co
  *
  * @param ptr            Pointer to buffer for reading
  * @param cluster_number Cluster number to read
- * @param cluster_count  Cluster count to read, due limitation of read_blocks block_count 255 => max cluster_count = 63
+ * @param cluster_count  Cluster count to read, due limitation of read_blocks
+ * block_count 255 => max cluster_count = 63
  */
 void read_clusters(void *ptr, uint32_t cluster_number, uint8_t cluster_count);
 
@@ -216,57 +224,75 @@ int8_t read_directory(struct FAT32DriverRequest request);
 /**
  * FAT32 read, read a file from file system.
  *
- * @param request All attribute will be used for read, buffer_size will limit reading count
- * @return Error code: 0 success - 1 not a file - 2 not enough buffer - 3 not found - -1 unknown
+ * @param request All attribute will be used for read, buffer_size will limit
+ * reading count
+ * @return Error code: 0 success - 1 not a file - 2 not enough buffer - 3 not
+ * found - -1 unknown
  */
 int8_t read(struct FAT32DriverRequest request);
 
 /**
  * FAT32 write, write a file or folder to file system.
  *
- * @param request All attribute will be used for write, buffer_size == 0 then create a folder / directory
- * @return Error code: 0 success - 1 file/folder already exist - 2 invalid parent cluster - -1 unknown
+ * @param request All attribute will be used for write, buffer_size == 0 then
+ * create a folder / directory
+ * @return Error code: 0 success - 1 file/folder already exist - 2 invalid
+ * parent cluster - -1 unknown
  */
 int8_t write(struct FAT32DriverRequest request);
 
 /**
- * FAT32 delete, delete a file or empty directory (only 1 DirectoryEntry) in file system.
+ * FAT32 delete, delete a file or empty directory (only 1 DirectoryEntry) in
+ * file system.
  *
  * @param request buf and buffer_size is unused
- * @return Error code: 0 success - 1 not found - 2 folder is not empty - -1 unknown
+ * @return Error code: 0 success - 1 not found - 2 folder is not empty - -1
+ * unknown
  */
 int8_t delete(struct FAT32DriverRequest request);
 
 bool is_dir_empty(struct FAT32DirectoryEntry *entry);
 
-bool is_dir_name_same(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+bool is_dir_name_same(struct FAT32DirectoryEntry *entry,
+                      struct FAT32DriverRequest req);
 
-bool is_dir_ext_same(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+bool is_dir_ext_same(struct FAT32DirectoryEntry *entry,
+                     struct FAT32DriverRequest req);
 
-bool is_dir_ext_name_same(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+bool is_dir_ext_name_same(struct FAT32DirectoryEntry *entry,
+                          struct FAT32DriverRequest req);
 
 bool is_subdirectory(struct FAT32DirectoryEntry *entry);
 
 int ceil(int a, int b);
 
-void create_subdirectory_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void create_subdirectory_from_entry(uint32_t cluster_number,
+                                    struct FAT32DirectoryEntry *entry,
+                                    struct FAT32DriverRequest req);
 
-void create_file_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void create_file_from_entry(uint32_t cluster_number,
+                            struct FAT32DirectoryEntry *entry,
+                            struct FAT32DriverRequest req);
 
 bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry);
 
-void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
+                                  struct FAT32DriverRequest req);
 
-void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
+                          struct FAT32DriverRequest req);
 
-void read_directory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
+                             struct FAT32DriverRequest req);
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
-bool increment_n_of_entry(struct FAT32DirectoryTable *table);
+void increment_n_of_entry(struct FAT32DirectoryTable *table);
 
-bool decrement_n_of_entry(struct FAT32DirectoryTable *table);
+void decrement_n_of_entry(struct FAT32DirectoryTable *table);
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
+
+bool is_parent_cluster_valid(struct FAT32DriverRequest);
 
 #endif
