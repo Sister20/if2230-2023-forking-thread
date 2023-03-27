@@ -114,8 +114,8 @@ void initialize_filesystem_fat32(void)
 {
     if (is_empty_storage())
     {
+        // Create FAT if it's empty
         create_fat32();
-        return;
     }
 
     // Move the FAT table from storage to the driver state
@@ -126,7 +126,7 @@ bool is_empty_storage()
 {
     uint8_t boot_sector[BLOCK_SIZE];
     read_blocks(&boot_sector, BOOT_SECTOR, 1);
-    return !(memcmp(boot_sector, fs_signature, BLOCK_SIZE) == 0);
+    return memcmp(boot_sector, fs_signature, BLOCK_SIZE);
 }
 
 void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_count)
@@ -159,18 +159,20 @@ int8_t read_directory(struct FAT32DriverRequest request)
     {
         struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
 
-        // Check if the entry matches the requested name and attributes
+        // Check if the entry matches the requested name and is not empty
         if (entry->user_attribute == UATTR_NOT_EMPTY && memcmp(entry->name, request.name, 8) == 0)
         {
             if (entry->attribute == ATTR_SUBDIRECTORY)
             {
-                // Found a matching directory entry
+                // The directory is a subdirectory
                 if (request.buffer_size < entry->filesize)
                 {
+                    // Size of the given buffer is not enough
                     return -1;
                 }
                 else
                 {
+                    // Enough size, read the cluster to the buffer
                     read_clusters(request.buf, entry->cluster_high, 1);
                     return 0;
                 }
