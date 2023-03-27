@@ -347,3 +347,44 @@ int8_t write(struct FAT32DriverRequest request)
   // If no matching directory entry was found, return error
   return 2;
 }
+
+int8_t delete(struct FAT32DriverRequest request){
+    read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+
+    // Iterate through the directory entries and find the matching one
+    for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry); i++) {
+        struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
+        
+        // Check if the entry matches the requested name and attributes
+        if (entry->user_attribute == UATTR_NOT_EMPTY && memcmp(entry->name, request.name, 8) == 0 && memcmp(entry->ext , request.ext, 3) == 0) {
+            if(entry->attribute == ATTR_SUBDIRECTORY){
+                // Found a matching directory entry, check if subdirectory empty or not
+                struct FAT32DirectoryTable subdir_table;
+                read_clusters(&subdir_table, entry->cluster_low, 1);
+                for (uint8_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry); j++) {
+                    struct FAT32DirectoryEntry *sub_entry = &(subdir_table.table[j]);
+                    // Check if the entry not empty
+                    if (sub_entry->user_attribute == UATTR_NOT_EMPTY) {
+                        return 2;
+                    }
+                }
+                entry->user_attribute = 0;
+                driver_state.fat_table.cluster_map[entry->cluster_low] = FAT32_FAT_END_OF_FILE;
+                write_clusters(&driver_state.fat_table, 1, 1);
+                return 0;
+            } else {
+                // Not a folder
+                uint16_t now_cluster_number = entry->cluster_low;
+                do {
+                    uint16_t next_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+                    driver_state.fat_table.cluster_map[now_cluster_number] = 0;
+                    now_cluster_number = driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+                } while(now_cluster_number != 0xFFFF);
+                entry->user_attribute = 0;
+                write_clusters(&driver_state.fat_table, 1, 1);
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
