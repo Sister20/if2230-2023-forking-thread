@@ -261,20 +261,20 @@ int8_t write(struct FAT32DriverRequest request)
     return 2;
   }
 
+  // Determine whether we're creating a file or a folder
+  bool is_creating_directory = request.buffer_size == 0;
+
   // Iterate through the directory entries and find the same folder/file. Return early if file with the same name already exist.
   for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
        i++)
   {
     struct FAT32DirectoryEntry *entry =
         &(driver_state.dir_table_buf.table[i]);
-    if (!is_dir_empty(entry) && is_dir_ext_name_same(entry, request))
+    if (!is_dir_empty(entry) && (is_creating_directory ? is_dir_name_same(entry, request) : is_dir_ext_name_same(entry, request)))
     {
       return 1;
     }
   }
-
-  // Determine whether we're creating a file or a folder
-  bool is_creating_directory = request.buffer_size == 0;
 
   // Iterate through the directory entries and find empty entry
   bool found_empty_entry = FALSE;
@@ -315,8 +315,15 @@ int8_t write(struct FAT32DriverRequest request)
     struct FAT32DirectoryTable new_directory;
     init_directory_table(&new_directory, request.name,
                          request.parent_cluster_number);
+
+    // Write the new directory into the cluster
     write_clusters(&new_directory, new_cluster_number, 1);
+
+    // Update the FAT table in storage
     write_clusters(&driver_state.fat_table, 1, 1);
+
+    // Update directory table of the parent
+    write_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
     return 0;
   }
 
