@@ -87,6 +87,8 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
     [BLOCK_SIZE - 1] = 'k',
 };
 
+uint32_t cluster_to_lba(uint32_t cluster) { return cluster * CLUSTER_BLOCK_COUNT; }
+
 void create_fat32(void)
 {
     write_blocks(&fs_signature, BOOT_SECTOR, 1);
@@ -99,4 +101,20 @@ bool is_empty_storage()
     char buf[BLOCK_SIZE];
     read_blocks(&buf, 0, 1);
     return memcmp(&buf, &fs_signature, BLOCK_SIZE) == 0;
+}
+
+
+void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_count)
+{
+    uint32_t logical_block_address = cluster_to_lba(cluster_number);
+    uint8_t block_count = cluster_to_lba(cluster_count);
+    write_blocks(ptr, logical_block_address, block_count);
+}
+
+
+void read_clusters(void *ptr, uint32_t cluster_number, uint8_t cluster_count)
+{
+    uint32_t logical_block_address = cluster_to_lba(cluster_number);
+    uint8_t block_count = cluster_to_lba(cluster_count);
+    write_blocks(ptr, logical_block_address, block_count);
 }
