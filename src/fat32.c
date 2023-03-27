@@ -115,7 +115,7 @@ bool is_empty_storage()
 {
     char buf[BLOCK_SIZE];
     read_blocks(buf, 0, 1);
-    return !memcmp(buf, fs_signature, BLOCK_SIZE) == 0;
+    return !(memcmp(buf, fs_signature, BLOCK_SIZE) == 0);
 }
 
 void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_count)
