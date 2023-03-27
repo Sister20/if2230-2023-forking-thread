@@ -90,6 +90,14 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
 void create_fat32(void)
 {
     write_blocks(&fs_signature, BOOT_SECTOR, 1);
+
+    if (is_empty_storage())
+    {
+        write_blocks(&fs_signature, BOOT_SECTOR, 1);
+        return;
+    }
+
+    //
 }
 
 void initialize_filesystem_fat32(void) { create_fat32(); }
@@ -98,5 +106,5 @@ bool is_empty_storage()
 {
     char buf[BLOCK_SIZE];
     read_blocks(&buf, 0, 1);
-    return memcmp(&buf, &fs_signature, BLOCK_SIZE) == 0;
+    return !memcmp(&buf, &fs_signature, BLOCK_SIZE) == 0;
 }
