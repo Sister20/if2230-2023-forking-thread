@@ -63,9 +63,12 @@ void write_blocks(const void *ptr, uint32_t logical_block_address,
   {
 
     ATA_busy_wait();
+    framebuffer_clear();
+    framebuffer_write_row(0, 1, "Finished busy waiting in loop block", 0xF, 0);
+
     ATA_DRQ_wait();
     framebuffer_clear();
-    framebuffer_write_row(0, 1, "Finished waiting block", 0xF, 0);
+    framebuffer_write_row(0, 1, "Finished waiting for ready in loop block", 0xF, 0);
     /* Note : uint16_t => 2 bytes, i is current block number to write
        HALF_BLOCK_SIZE*i = block_offset with pointer arithmetic
     */
