@@ -239,4 +239,6 @@ bool is_dir_ext_name_same(struct FAT32DirectoryEntry *entry, struct FAT32DriverR
 
 bool is_subdirectory(struct FAT32DirectoryEntry *entry);
 
+int ceil(int a, int b);
+
 #endif
