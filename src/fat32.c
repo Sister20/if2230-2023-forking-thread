@@ -88,11 +88,26 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
     [BLOCK_SIZE - 1] = 'k',
 };
 
+static struct FAT32DriverState driver_state;
+
 uint32_t cluster_to_lba(uint32_t cluster) { return cluster * CLUSTER_BLOCK_COUNT + BOOT_SECTOR; }
 
 void create_fat32(void)
 {
+    // Copy fs_signature
     write_blocks(fs_signature, BOOT_SECTOR, 1);
+
+    // Copy reserved clusters
+    driver_state.fat_table.cluster_map[0] = CLUSTER_0_VALUE;
+    driver_state.fat_table.cluster_map[1] = CLUSTER_1_VALUE;
+    driver_state.fat_table.cluster_map[2] = FAT32_FAT_END_OF_FILE;
+
+    // Empty the remaining entry in the fat table
+    for (int i = 3; i < CLUSTER_MAP_SIZE; i++)
+    {
+        driver_state.fat_table.cluster_map[i] = 0;
+    }
+    write_clusters(&driver_state.fat_table, 1, 1);
 }
 
 void initialize_filesystem_fat32(void)
@@ -102,13 +117,16 @@ void initialize_filesystem_fat32(void)
         create_fat32();
         return;
     }
+
+    // Move the FAT table from storage to the driver state
+    read_clusters(&driver_state.fat_table, 1, 1);
 }
 
 bool is_empty_storage()
 {
-    char buf[BLOCK_SIZE];
-    read_blocks(buf, 0, 1);
-    return !(memcmp(buf, fs_signature, BLOCK_SIZE) == 0);
+    uint8_t boot_sector[BLOCK_SIZE];
+    read_blocks(&boot_sector, BOOT_SECTOR, 1);
+    return !(memcmp(boot_sector, fs_signature, BLOCK_SIZE) == 0);
 }
 
 void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_count)
