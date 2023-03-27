@@ -42,40 +42,22 @@ void read_blocks(void *ptr, uint32_t logical_block_address,
 void write_blocks(const void *ptr, uint32_t logical_block_address,
                   uint8_t block_count)
 {
-  framebuffer_clear();
-  framebuffer_write_row(0, 1, "Entering write block", 0xF, 0);
-
   ATA_busy_wait();
-
-  framebuffer_clear();
-  framebuffer_write_row(0, 1, "Finished waiting block initial", 0xF, 0);
-
   out(0x1F6, 0xE0 | ((logical_block_address >> 24) & 0xF));
   out(0x1F2, block_count);
   out(0x1F3, (uint8_t)logical_block_address);
   out(0x1F4, (uint8_t)(logical_block_address >> 8));
   out(0x1F5, (uint8_t)(logical_block_address >> 16));
   out(0x1F7, 0x30);
-
-  framebuffer_write_row(0, 1, "Finished value initialization", 0xF, 0);
-
   for (uint32_t i = 0; i < block_count; i++)
   {
 
     ATA_busy_wait();
-    framebuffer_clear();
-    framebuffer_write_row(0, 1, "Finished busy waiting in loop block", 0xF, 0);
-
     ATA_DRQ_wait();
-    framebuffer_clear();
-    framebuffer_write_row(0, 1, "Finished waiting for ready in loop block", 0xF, 0);
     /* Note : uint16_t => 2 bytes, i is current block number to write
        HALF_BLOCK_SIZE*i = block_offset with pointer arithmetic
     */
     for (uint32_t j = 0; j < HALF_BLOCK_SIZE; j++)
       out16(0x1F0, ((uint16_t *)ptr)[HALF_BLOCK_SIZE * i + j]);
   }
-
-  framebuffer_clear();
-  framebuffer_write_row(0, 1, "Exiting write blocks", 0xF, 0);
 }
