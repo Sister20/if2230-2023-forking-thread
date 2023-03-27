@@ -130,10 +130,10 @@ void keyboard_isr(void) {
             keyboard_state.buffer_index++;
 
             // Handle wrapping behaviour
-            if(col < 80){
+            if(col < 79){
               framebuffer_set_cursor(row, col + 1);
-            } else if(row < 25) {
-              framebuffer_set_cursor(row + 1, col);
+            } else if(row < 24) {
+              framebuffer_set_cursor(row + 1, 0);
             } else {
               // Do Nothing
             }
