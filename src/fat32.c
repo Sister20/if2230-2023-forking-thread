@@ -149,3 +149,40 @@ void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name, uin
     dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
     dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
 }
+
+int8_t read_directory(struct FAT32DriverRequest request)
+{
+    read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+
+    // Iterate through the directory entries and find the matching one
+    for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry); i++)
+    {
+        struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
+
+        // Check if the entry matches the requested name and attributes
+        if (entry->user_attribute == UATTR_NOT_EMPTY && memcmp(entry->name, request.name, 8) == 0)
+        {
+            if (entry->attribute == ATTR_SUBDIRECTORY)
+            {
+                // Found a matching directory entry
+                if (request.buffer_size < entry->filesize)
+                {
+                    return -1;
+                }
+                else
+                {
+                    read_clusters(request.buf, entry->cluster_high, 1);
+                    return 0;
+                }
+            }
+            else
+            {
+                // Not a folder
+                return 1;
+            }
+        }
+    }
+
+    // If no matching directory entry was found, return error
+    return 2;
+}
