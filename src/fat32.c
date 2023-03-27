@@ -319,7 +319,7 @@ int8_t write(struct FAT32DriverRequest request)
     // Write the new directory into the cluster
     write_clusters(&new_directory, new_cluster_number, 1);
 
-    // Update the FAT table in storage
+    // Update the file allocation table in storage
     write_clusters(&driver_state.fat_table, 1, 1);
 
     // Update directory table of the parent
