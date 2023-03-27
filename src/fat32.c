@@ -93,18 +93,15 @@ uint32_t cluster_to_lba(uint32_t cluster) { return cluster * CLUSTER_BLOCK_COUNT
 void create_fat32(void)
 {
     write_blocks(fs_signature, BOOT_SECTOR, 1);
-
-    //   if (is_empty_storage()) {
-    //     write_blocks(&fs_signature, BOOT_SECTOR, 1);
-    //     return;
-    //   }
-
-    //
 }
 
 void initialize_filesystem_fat32(void)
 {
-    create_fat32();
+    if (is_empty_storage())
+    {
+        create_fat32();
+        return;
+    }
 }
 
 bool is_empty_storage()
