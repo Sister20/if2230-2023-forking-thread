@@ -13,14 +13,12 @@ uint8_t get_RTC_register(uint8_t reg) {
 }
  
 void read_rtc() {
-      uint8_t century;
       uint8_t last_second;
       uint8_t last_minute;
       uint8_t last_hour;
       uint8_t last_day;
       uint8_t last_month;
       uint8_t last_year;
-      uint8_t last_century;
       uint8_t registerB;
  
       // Note: This uses the "read registers until you get the same values twice in a row" technique
@@ -41,7 +39,6 @@ void read_rtc() {
             last_day = rtc.day;
             last_month = rtc.month;
             last_year = rtc.year;
-            last_century = century;
  
             while (get_update_in_progress_flag());           // Make sure an update isn't in progress
             rtc.second = get_RTC_register(0x00);
@@ -52,8 +49,7 @@ void read_rtc() {
             rtc.year = get_RTC_register(0x09);
             
       } while( (last_second != rtc.second) || (last_minute != rtc.minute) || (last_hour != rtc.hour) ||
-               (last_day != rtc.day) || (last_month != rtc.month) || (last_year != rtc.year) ||
-               (last_century != century) );
+               (last_day != rtc.day) || (last_month != rtc.month) || (last_year != rtc.year) );
  
       registerB = get_RTC_register(0x0B);
  
