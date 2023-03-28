@@ -542,12 +542,12 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32Driv
   } while (next_cluster_number != 0xFFFF);
 }
 
-bool increment_n_of_entry(struct FAT32DirectoryTable *table)
+void increment_n_of_entry(struct FAT32DirectoryTable *table)
 {
   (table->n_of_entry)++;
 }
 
-bool decrement_n_of_entry(struct FAT32DirectoryTable *table)
+void decrement_n_of_entry(struct FAT32DirectoryTable *table)
 {
   (table->n_of_entry)--;
 }
