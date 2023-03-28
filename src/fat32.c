@@ -398,6 +398,9 @@ void create_file_from_entry(uint32_t cluster_number,
                             struct FAT32DriverRequest req) {
   // Increment the number of entry in its targeted parent's directory table
   increment_n_of_entry(&(driver_state.dir_table_buf));
+  entry->cluster_high = cluster_number >> 16;
+  entry->cluster_low = cluster_number & 0x0000FFFF;
+  
   int required_clusters = ceil(req.buffer_size, CLUSTER_SIZE);
 
   for (int i = 0; i < required_clusters; i++) {
@@ -416,8 +419,6 @@ void create_file_from_entry(uint32_t cluster_number,
   memcpy(entry->name, req.name, 8);
   memcpy(entry->ext, req.ext, 3);
   entry->filesize = req.buffer_size;
-  entry->cluster_high = cluster_number >> 16;
-  entry->cluster_low = cluster_number & 0x0000FFFF;
   entry->user_attribute = UATTR_NOT_EMPTY;
   entry->n_of_occupied_cluster = required_clusters;
   write_clusters(&driver_state.fat_table, 1, 1);
