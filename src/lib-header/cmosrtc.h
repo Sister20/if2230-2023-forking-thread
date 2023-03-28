@@ -62,6 +62,6 @@ void read_rtc();
 
 struct CMOSRTC get_time();
 
-uint32_t CMOSRTC_to_DOSTimeStamp(struct CMOSRTC rtc);
+uint32_t CMOSRTC_to_FTTimestamp(struct CMOSRTC rtc);
 
 #endif

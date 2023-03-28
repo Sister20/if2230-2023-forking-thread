@@ -97,7 +97,7 @@ struct CMOSRTC get_time() {
  * 21-24 = months bit
  * 25-31 = years bit
 */
-uint32_t CMOSRTC_to_FTimestamp(struct CMOSRTC rtcTimestamp) {
+uint32_t CMOSRTC_to_FTTimestamp(struct CMOSRTC rtcTimestamp) {
       uint32_t FTTimestamp = 0x0;
       FTTimestamp |= (rtcTimestamp.year - START_YEAR) << 25;
       FTTimestamp |= rtcTimestamp.month << 21;
