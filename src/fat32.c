@@ -258,7 +258,7 @@ int8_t write(struct FAT32DriverRequest request) {
     }
   }
 
-  // If no matching directory entry was found, return error
+  // If no enough clusters
   if (!check_empty) {
     return -1;
   }
