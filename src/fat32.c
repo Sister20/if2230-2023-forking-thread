@@ -230,27 +230,38 @@ int8_t write(struct FAT32DriverRequest request) {
 
   if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
       !is_parent_cluster_valid(request))
-    return -1;
+    return 2;
 
   bool check_empty = FALSE;
   uint32_t new_cluster_number = 0;
+
+  // Determine whether we're creating a file or a folder
+  bool is_creating_directory = request.buffer_size == 0;
+
+  // Determine the amount of clusters needed
+  int required_clusters = ceil(request.buffer_size, CLUSTER_SIZE);
+
+  if (required_clusters == 0) required_clusters++;
+
+  int count = 0;
 
   // Iterate through the directory entries and find empty cluster
   for (int i = 3; i < CLUSTER_MAP_SIZE && !check_empty; i++) {
     // Check if the cluster empty, if yes target the cluster
     check_empty = driver_state.fat_table.cluster_map[i] == (uint32_t)0;
-    if (check_empty) {
-      new_cluster_number = i;
+
+    if (check_empty)
+    {
+      if (count == 0) new_cluster_number = i;
+      count++;
+      check_empty = (count == required_clusters);
     }
   }
 
   // If no matching directory entry was found, return error
   if (!check_empty) {
-    return 2;
+    return -1;
   }
-
-  // Determine whether we're creating a file or a folder
-  bool is_creating_directory = request.buffer_size == 0;
 
   // Iterate through the directory entries and find the same folder/file. Return
   // early if file with the same name already exist.
@@ -400,7 +411,7 @@ void create_file_from_entry(uint32_t cluster_number,
   increment_n_of_entry(&(driver_state.dir_table_buf));
   entry->cluster_high = cluster_number >> 16;
   entry->cluster_low = cluster_number & 0x0000FFFF;
-  
+
   int required_clusters = ceil(req.buffer_size, CLUSTER_SIZE);
 
   for (int i = 0; i < required_clusters; i++) {
