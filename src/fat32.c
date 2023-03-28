@@ -195,7 +195,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
   }
 
   // Enough size, read the cluster to the buffer
-  read_clusters(request.buf, entry->cluster_high, 1);
+  read_clusters(request.buf, entry->cluster_low, 1);
   return 0;
 }
 
