@@ -33,9 +33,6 @@ void read_rtc() {
       rtc.day = get_RTC_register(0x07);
       rtc.month = get_RTC_register(0x08);
       rtc.year = get_RTC_register(0x09);
-      if(century_register != 0) {
-            century = get_RTC_register(century_register);
-      }
  
       do {
             last_second = rtc.second;
@@ -53,9 +50,7 @@ void read_rtc() {
             rtc.day = get_RTC_register(0x07);
             rtc.month = get_RTC_register(0x08);
             rtc.year = get_RTC_register(0x09);
-            if(century_register != 0) {
-                  century = get_RTC_register(century_register);
-            }
+            
       } while( (last_second != rtc.second) || (last_minute != rtc.minute) || (last_hour != rtc.hour) ||
                (last_day != rtc.day) || (last_month != rtc.month) || (last_year != rtc.year) ||
                (last_century != century) );
@@ -71,9 +66,6 @@ void read_rtc() {
             rtc.day = (rtc.day & 0x0F) + ((rtc.day / 16) * 10);
             rtc.month = (rtc.month & 0x0F) + ((rtc.month / 16) * 10);
             rtc.year = (rtc.year & 0x0F) + ((rtc.year / 16) * 10);
-            if(century_register != 0) {
-                  century = (century & 0x0F) + ((century / 16) * 10);
-            }
       }
  
       // Convert 12 hour clock to 24 hour clock if necessary
@@ -81,13 +73,38 @@ void read_rtc() {
       if (!(registerB & 0x02) && (rtc.hour & 0x80)) {
             rtc.hour = ((rtc.hour & 0x7F) + 12) % 24;
       }
+
+}
+
+struct CMOSRTC get_time() {
+      read_rtc();
  
       // Calculate the full (4-digit) year
- 
-      if(century_register != 0) {
-            rtc.year += century * 100;
-      } else {
-            rtc.year += (CURRENT_YEAR / 100) * 100;
-            if(rtc.year < CURRENT_YEAR) rtc.year += 100;
-      }
+
+      rtc.year += (START_YEAR / 100) * 100;
+      if(rtc.year < START_YEAR) rtc.year += 100;
+      
+      return rtc;
+}
+
+/**
+ * Converts reference CMOS RTC timestamp format to Forking Thread's (FT) 32-bit timestamp format
+ * format details as follow:
+ * 0-4 = seconds bit
+ * 5-10 = minutes bit
+ * 11-15 = hours bit
+ * 16-20 = days bit
+ * 21-24 = months bit
+ * 25-31 = years bit
+*/
+uint32_t CMOSRTC_to_FTimestamp(struct CMOSRTC rtcTimestamp) {
+      uint32_t FTTimestamp = 0x0;
+      FTTimestamp |= (rtcTimestamp.year - START_YEAR) << 25;
+      FTTimestamp |= rtcTimestamp.month << 21;
+      FTTimestamp |= rtcTimestamp.day << 16;
+      FTTimestamp |= rtcTimestamp.hour << 11;
+      FTTimestamp |= rtcTimestamp.minute << 5;
+      FTTimestamp != rtcTimestamp.second;
+
+      return FTTimestamp;
 }

@@ -4,24 +4,27 @@
 #include "stdtype.h"
 #include "portio.h"
 
-/* Using reference: https://wiki.osdev.org/CMOS 
-    Register  Contents            Range
-    0x00      Seconds             0–59
-    0x02      Minutes             0–59
-    0x04      Hours               0–23 in 24-hour mode, 
-                                  1–12 in 12-hour mode, highest bit set if pm
-    0x06      Weekday             1–7, Sunday = 1
-    0x07      Day of Month        1–31
-    0x08      Month               1–12
-    0x09      Year                0–99
-    0x32      Century (maybe)     19–20?
-    0x0A      Status Register A
-    0x0B      Status Register B
-*/
+/** Using reference: https://wiki.osdev.org/CMOS 
+ *  Register  Contents            Range
+ *  0x00      Seconds             0–59
+ *  0x02      Minutes             0–59
+ *  0x04      Hours               0–23 in 24-hour mode, 
+ *                                1–12 in 12-hour mode, highest bit set if pm
+ *  0x06      Weekday             1–7, Sunday = 1
+ *  0x07      Day of Month        1–31
+ *  0x08      Month               1–12
+ *  0x09      Year                0–99
+ *  0x32      Century (maybe)     19–20? not implemented in this OS, uses DOS-like built in century reference
+ *  0x0A      Status Register A
+ *  0x0B      Status Register B
+ */
 
-#define CURRENT_YEAR        2023                            // Change this each year!
+/** Start year of FT (Forking Thread) timestamp.
+ * Uses DOS-like start year reference (every year value in timestamp is offset from START_YEAR)
+ */
+#define START_YEAR 2023
  
-int32_t century_register = 0x00;                                // Set by ACPI table parsing code if possible
+// int32_t century_register = 0x00;    // Set by ACPI table parsing code if possible
 
 /**
  * @param second    Range: 0-59
@@ -41,9 +44,6 @@ struct CMOSRTC
     uint8_t month;
     uint32_t year;
 } __attribute__((packed));
-
-// void out_byte(int32_t port, int32_t value);
-// int32_t in_byte(int32_t port);
  
 enum {
       cmos_address = 0x70,
@@ -53,7 +53,15 @@ enum {
 uint8_t get_update_in_progress_flag();
  
 uint8_t get_RTC_register(uint8_t reg);
- 
+
+/**
+ * Reads the Real Time Clock (RTC) from CMOS RTC
+ * and stores the data in static variable
+*/
 void read_rtc();
+
+struct CMOSRTC get_time();
+
+uint32_t CMOSRTC_to_DOSTimeStamp(struct CMOSRTC rtc);
 
 #endif
