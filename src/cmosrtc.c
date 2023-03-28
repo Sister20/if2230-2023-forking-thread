@@ -2,66 +2,14 @@
 
 static struct CMOSRTC rtc;
 
-ReadFromCMOS (uint8_t array [])
-{
-   uint8_t tvalue, index;
- 
-   for(index = 0; index < 128; index++)
-   {
-      _asm
-      {
-         cli             /* Disable interrupts*/
-         mov al, index   /* Move index address*/
-         /* since the 0x80 bit of al is not set, NMI is active */
-         out 0x70,al     /* Copy address to CMOS register*/
-         /* some kind of real delay here is probably best */
-         in al,0x71      /* Fetch 1 byte to al*/
-         sti             /* Enable interrupts*/
-         mov tvalue,al
-       }
- 
-       array[index] = tvalue;
-   }
-}
-
-WriteTOCMOS(uint8_t array[])
-{
-   uint8_t index;
- 
-   for(index = 0; index < 128; index++)
-   {
-      uint8_t tvalue = array[index];
-      _asm
-      {
-         cli             /* Clear interrupts*/
-         mov al,index    /* move index address*/
-         out 0x70,al     /* copy address to CMOS register*/
-         /* some kind of real delay here is probably best */
-         mov al,tvalue   /* move value to al*/
-         out 0x71,al     /* write 1 byte to CMOS*/
-         sti             /* Enable interrupts*/
-      }
-   }
-}
-
-void out_byte(int32_t port, int32_t value)
-{
-      /* TO DO */
-}
-
-int32_t in_byte(int32_t port)
-{
-      /* TO DO */
-}
-
-int32_t get_update_in_progress_flag() {
-      out_byte(cmos_address, 0x0A);
-      return (in_byte(cmos_data) & 0x80);
+uint8_t get_update_in_progress_flag() {
+      out(cmos_address, 0x0A);
+      return (in(cmos_data) & 0x80);
 }
  
-uint8_t get_RTC_register(int32_t reg) {
-      out_byte(cmos_address, reg);
-      return in_byte(cmos_data);
+uint8_t get_RTC_register(uint8_t reg) {
+      out(cmos_address, reg);
+      return in(cmos_data);
 }
  
 void read_rtc() {

@@ -2,6 +2,7 @@
 #define _CMOSRTC_H
 
 #include "stdtype.h"
+#include "portio.h"
 
 /* Using reference: https://wiki.osdev.org/CMOS 
     Register  Contents            Range
@@ -31,7 +32,7 @@ int32_t century_register = 0x00;                                // Set by ACPI t
  * @param month     Range: 1-12
  * @param year      Range: 0-99
  */
-struct CMOSTRTC
+struct CMOSRTC
 {
     uint8_t second;
     uint8_t minute;
@@ -41,20 +42,17 @@ struct CMOSTRTC
     uint32_t year;
 } __attribute__((packed));
 
-ReadFromCMOS (uint8_t array []);
-WriteTOCMOS(uint8_t array[]);
-
-void out_byte(int32_t port, int32_t value);
-int32_t in_byte(int32_t port);
+// void out_byte(int32_t port, int32_t value);
+// int32_t in_byte(int32_t port);
  
 enum {
       cmos_address = 0x70,
       cmos_data    = 0x71
 };
  
-int32_t get_update_in_progress_flag();
+uint8_t get_update_in_progress_flag();
  
-uint8_t get_RTC_register(int32_t reg);
+uint8_t get_RTC_register(uint8_t reg);
  
 void read_rtc();
 
