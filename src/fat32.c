@@ -277,6 +277,8 @@ int8_t write(struct FAT32DriverRequest request)
     struct FAT32DirectoryEntry *entry =
         &(driver_state.dir_table_buf.table[i]);
 
+    if (is_dir_empty(entry)) continue;
+
     // Check if it's similar
     if (is_creating_directory)
     {
@@ -287,8 +289,7 @@ int8_t write(struct FAT32DriverRequest request)
       same_entry = is_dir_ext_name_same(entry, request) && !is_subdirectory(entry);
     }
 
-    // Check if it's similar and not empty
-    if (!is_dir_empty(entry) && same_entry)
+    if (same_entry)
     {
       return 1;
     }
