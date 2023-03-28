@@ -92,10 +92,15 @@ struct FAT32DirectoryEntry
     uint32_t filesize;
 } __attribute__((packed));
 
-// FAT32 DirectoryTable, containing directory entry table - @param table Table of DirectoryEntry that span within 1 cluster
+/**
+ * @brief FAT32 DirectoryTable, containing directory entry table
+ * @param table Table of DirectoryEntry that span within 1 cluster
+ * @param n_of_entry The number of entry in the table
+ */
 struct FAT32DirectoryTable
 {
     struct FAT32DirectoryEntry table[CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)];
+    uint8_t n_of_entry;
 } __attribute__((packed));
 
 /* -- FAT32 Driver -- */
@@ -252,5 +257,11 @@ void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT3
 void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
 
 void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+
+bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
+
+bool increment_n_of_entry(struct FAT32DirectoryTable *table);
+
+bool decrement_n_of_entry(struct FAT32DirectoryTable *table);
 
 #endif
