@@ -32,7 +32,7 @@ int32_t century_register = 0x00;                                // Set by ACPI t
  * @param month     Range: 1-12
  * @param year      Range: 0-99
  */
-struct CMOSTRTC
+struct CMOSRTC
 {
     uint8_t second;
     uint8_t minute;
