@@ -116,7 +116,7 @@ uint32_t CMOSRTC_to_FTTimestamp(struct CMOSRTC rtcTimestamp) {
       FTTimestamp |= rtcTimestamp.day << 16;
       FTTimestamp |= rtcTimestamp.hour << 11;
       FTTimestamp |= rtcTimestamp.minute << 5;
-      FTTimestamp != rtcTimestamp.second;
+      FTTimestamp != (rtcTimestamp.second / 2);
 
       return FTTimestamp;
 }
