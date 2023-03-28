@@ -415,7 +415,7 @@ void create_file_from_entry(uint32_t cluster_number,
   int required_clusters = ceil(req.buffer_size, CLUSTER_SIZE);
 
   for (int i = 0; i < required_clusters; i++) {
-    write_clusters(req.buf, cluster_number, 1);
+    write_clusters(req.buf + CLUSTER_SIZE * i, cluster_number, 1);
     uint32_t old_cluster_number = cluster_number;
     for (int j = old_cluster_number + 1; j < CLUSTER_MAP_SIZE; j++) {
       // Check if the cluster is empty
