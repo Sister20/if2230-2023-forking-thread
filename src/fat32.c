@@ -485,17 +485,17 @@ void create_file_from_entry(uint32_t cluster_number,
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry)
 {
-  framebuffer_write(0, 0, (char)(entry->cluster_low + 94), 0x7, 0x0);
+  // framebuffer_write(0, 0, (char)(entry->cluster_low + 94), 0x7, 0x0);
   uint16_t now_cluster_number = entry->cluster_low;
-  framebuffer_write(1, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
+  // framebuffer_write(1, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
   struct FAT32DirectoryTable subdir_table;
   bool found_filled = FALSE;
   bool first_cluster = TRUE;
   do
   {
-    framebuffer_write(2, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
+    // framebuffer_write(2, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
     read_clusters(&subdir_table, now_cluster_number, 1);
-    framebuffer_write(3, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
+    // framebuffer_write(3, 0, (char)(now_cluster_number + 94), 0x7, 0x0);
     now_cluster_number =
         driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
 
