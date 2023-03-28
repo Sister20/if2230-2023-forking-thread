@@ -336,6 +336,9 @@ int8_t write(struct FAT32DriverRequest request)
     return -1;
   }
 
+  uint32_t FTTimestamp = get_FTTimestamp_time();
+  entry->create_time = (FTTimestamp & 0x0000FFFF);
+  entry->create_date = ((FTTimestamp & 0xFFFF0000) >> 16);
   // Create a directory
   if (is_creating_directory)
   {

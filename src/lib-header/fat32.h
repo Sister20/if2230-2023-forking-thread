@@ -3,6 +3,7 @@
 
 #include "disk.h"
 #include "stdtype.h"
+#include "cmosrtc.h"
 
 /**
  * FAT32 - IF2230 edition - 2023
