@@ -191,7 +191,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
   }
 
   // Return error when the buffer size is insufficient
-  if (request.buffer_size < entry->n_of_occupied_cluster * CLUSTER_SIZE)
+  if (request.buffer_size < entry->filesize)
   {
     return -1;
   }
@@ -433,7 +433,7 @@ void create_subdirectory_from_entry(uint32_t cluster_number,
   entry->cluster_low = (uint16_t)cluster_number & 0x0000FFFF;
   entry->attribute = (uint8_t)ATTR_SUBDIRECTORY;
   entry->user_attribute = (uint8_t)UATTR_NOT_EMPTY;
-  entry->n_of_occupied_cluster = 1;
+  // entry->n_of_occupied_cluster = (uint16_t)1;
   struct FAT32DirectoryTable new_directory;
   init_directory_table(&new_directory, req.name, req.parent_cluster_number);
 
@@ -478,7 +478,7 @@ void create_file_from_entry(uint32_t cluster_number,
   memcpy(entry->ext, req.ext, 3);
   entry->filesize = req.buffer_size;
   entry->user_attribute = UATTR_NOT_EMPTY;
-  entry->n_of_occupied_cluster = required_clusters;
+  // entry->n_of_occupied_cluster = required_clusters;
   write_clusters(&driver_state.fat_table, 1, 1);
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 };
@@ -542,7 +542,7 @@ void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
   driver_state.fat_table.cluster_map[entry->cluster_low] = 0;
   entry->cluster_high = 0;
   entry->cluster_low = 0;
-  entry->n_of_occupied_cluster = 0;
+  // entry->n_of_occupied_cluster = 0;
 
   // Decrement the number of entry in its targeted parent's directory table
   decrement_n_of_entry(&(driver_state.dir_table_buf));
@@ -569,7 +569,7 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
   entry->cluster_low = 0;
   entry->user_attribute = 0;
   entry->attribute = 0;
-  entry->n_of_occupied_cluster = 0;
+  // entry->n_of_occupied_cluster = 0;
 
   // Decrement the number of entry in its targeted parent's directory table
   decrement_n_of_entry(&(driver_state.dir_table_buf));
