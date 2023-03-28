@@ -171,6 +171,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
   for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !found_matching_directory;
        i++)
   {
+    entry = &(driver_state.dir_table_buf.table[i]);
     found_matching_file = !(is_dir_empty(entry)) &&
                           is_dir_name_same(entry, request);
     found_matching_directory = found_matching_file && is_subdirectory(entry);
