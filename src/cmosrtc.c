@@ -1,5 +1,7 @@
 #include "lib-header/cmosrtc.h"
 
+static struct CMOSRTC rtc;
+
 int get_update_in_progress_flag() {
       out_byte(cmos_address, 0x0A);
       return (in_byte(cmos_data) & 0x80);

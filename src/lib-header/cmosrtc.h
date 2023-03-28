@@ -40,8 +40,6 @@ struct CMOSTRTC
     uint8_t month;
     uint32_t year;
 } __attribute__((packed));
-
-struct CMOSRTC rtc;
  
 void out_byte(int port, int value);
 int in_byte(int port);
