@@ -208,7 +208,7 @@ int8_t read(struct FAT32DriverRequest request)
   struct FAT32DirectoryEntry *entry;
   bool found_matching_file = FALSE;
   uint8_t index_of_matching_file;
-  for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && found_matching_file;
+  for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !found_matching_file;
        i++)
   {
     entry = &(driver_state.dir_table_buf.table[i]);
@@ -221,7 +221,7 @@ int8_t read(struct FAT32DriverRequest request)
   }
 
   // Check if the entry isn't empty and matches the requested name and attributes. If it's not satisfied, skip.
-  if (found_matching_file)
+  if (!found_matching_file)
   {
     return 2;
   }
