@@ -269,12 +269,26 @@ int8_t write(struct FAT32DriverRequest request)
   bool is_creating_directory = request.buffer_size == 0;
 
   // Iterate through the directory entries and find the same folder/file. Return early if file with the same name already exist.
+  bool same_entry;
   for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
        i++)
   {
+
     struct FAT32DirectoryEntry *entry =
         &(driver_state.dir_table_buf.table[i]);
-    if (!is_dir_empty(entry) && (is_creating_directory ? is_dir_name_same(entry, request) : is_dir_ext_name_same(entry, request)))
+
+    // Check if it's similar
+    if (is_creating_directory)
+    {
+      same_entry = is_dir_name_same(entry, request) && is_subdirectory(entry);
+    }
+    else
+    {
+      same_entry = is_dir_ext_name_same(entry, request) && !is_subdirectory(entry);
+    }
+
+    // Check if it's similar and not empty
+    if (!is_dir_empty(entry) && same_entry)
     {
       return 1;
     }
