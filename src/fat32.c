@@ -443,10 +443,10 @@ bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry) {
   bool first_cluster = TRUE;
   do {
     read_clusters(&subdir_table, now_cluster_number, 1);
-    uint16_t next_cluster_number =
-        driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+
     now_cluster_number =
-        driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+        driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+        
     found_filled = subdir_table.n_of_entry > (first_cluster ? 1 : 0);
     first_cluster = FALSE;
   } while (now_cluster_number != 0xFFFF && !found_filled);
