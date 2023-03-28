@@ -6,12 +6,12 @@ uint8_t get_update_in_progress_flag() {
       out(cmos_address, 0x0A);
       return (in(cmos_data) & 0x80);
 }
- 
+
 uint8_t get_RTC_register(uint8_t reg) {
       out(cmos_address, reg);
       return in(cmos_data);
 }
- 
+
 void read_rtc() {
       uint8_t last_second;
       uint8_t last_minute;
@@ -84,6 +84,21 @@ struct CMOSRTC get_time() {
 }
 
 /**
+ * Get current time in Forking Thread's (FT) 32-bit timestamp format
+ * format details as follow:
+ * 0-4 = seconds bit
+ * 5-10 = minutes bit
+ * 11-15 = hours bit
+ * 16-20 = days bit
+ * 21-24 = months bit
+ * 25-31 = years bit
+*/
+uint32_t get_FTTimestamp_time() {
+      read_rtc();
+      return CMOSRTC_to_FTTimestamp(rtc);
+}
+
+/**
  * Converts reference CMOS RTC timestamp format to Forking Thread's (FT) 32-bit timestamp format
  * format details as follow:
  * 0-4 = seconds bit
@@ -95,6 +110,7 @@ struct CMOSRTC get_time() {
 */
 uint32_t CMOSRTC_to_FTTimestamp(struct CMOSRTC rtcTimestamp) {
       uint32_t FTTimestamp = 0x0;
+
       FTTimestamp |= (rtcTimestamp.year - START_YEAR) << 25;
       FTTimestamp |= rtcTimestamp.month << 21;
       FTTimestamp |= rtcTimestamp.day << 16;
