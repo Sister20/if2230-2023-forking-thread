@@ -84,12 +84,15 @@ struct FAT32DirectoryEntry
     uint16_t create_time;
     uint16_t create_date;
     uint16_t access_date;
-    uint16_t cluster_high;
-
     uint16_t modified_time;
     uint16_t modified_date;
+
+    uint16_t cluster_high;
     uint16_t cluster_low;
+    uint16_t n_of_occupied_cluster;
+
     uint32_t filesize;
+
 } __attribute__((packed));
 
 /**
@@ -256,12 +259,14 @@ void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT3
 
 void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
 
-void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
+void read_directory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
 bool increment_n_of_entry(struct FAT32DirectoryTable *table);
 
 bool decrement_n_of_entry(struct FAT32DirectoryTable *table);
+
+bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
 #endif
