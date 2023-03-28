@@ -263,9 +263,9 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32Driv
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
-bool increment_n_of_entry(struct FAT32DirectoryTable *table);
+void increment_n_of_entry(struct FAT32DirectoryTable *table);
 
-bool decrement_n_of_entry(struct FAT32DirectoryTable *table);
+void decrement_n_of_entry(struct FAT32DirectoryTable *table);
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
