@@ -213,7 +213,7 @@ int8_t read(struct FAT32DriverRequest request)
   {
     entry = &(driver_state.dir_table_buf.table[i]);
     found_matching_file = !(is_dir_empty(entry)) &&
-                          is_dir_name_ext_same(entry, request);
+                          is_dir_ext_name_same(entry, request);
     if (found_matching_file)
     {
       index_of_matching_file = i;
