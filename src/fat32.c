@@ -381,6 +381,7 @@ int8_t delete(struct FAT32DriverRequest request)
 
     // Folder is empty and can be deleted
     delete_subdirectory_by_entry(entry, request);
+
     return 0;
   }
 
@@ -526,22 +527,22 @@ bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
 void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
                                   struct FAT32DriverRequest req)
 {
+
   uint16_t now_cluster_number = entry->cluster_low;
+  uint16_t next_cluster_number;
   do
   {
-    uint16_t next_cluster_number =
-        driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
-    driver_state.fat_table.cluster_map[now_cluster_number] = 0;
-    now_cluster_number =
-        driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+    next_cluster_number = (uint16_t)(driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF);
+    driver_state.fat_table.cluster_map[now_cluster_number] = (uint32_t)0;
+    now_cluster_number = next_cluster_number;
   } while (now_cluster_number != 0xFFFF);
 
   memcpy(entry->name, "\0\0\0\0\0\0\0\0", 8);
-  entry->user_attribute = 0;
-  entry->attribute = 0;
-  driver_state.fat_table.cluster_map[entry->cluster_low] = 0;
-  entry->cluster_high = 0;
-  entry->cluster_low = 0;
+  entry->user_attribute = (uint8_t)0;
+  entry->attribute = (uint8_t)0;
+  driver_state.fat_table.cluster_map[entry->cluster_low] = (uint32_t)0;
+  entry->cluster_high = (uint16_t)0;
+  entry->cluster_low = (uint16_t)0;
   // entry->n_of_occupied_cluster = 0;
 
   // Decrement the number of entry in its targeted parent's directory table
@@ -555,13 +556,12 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
                           struct FAT32DriverRequest req)
 {
   uint16_t now_cluster_number = entry->cluster_low;
+  uint16_t next_cluster_number;
   do
   {
-    uint16_t next_cluster_number =
-        driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
-    driver_state.fat_table.cluster_map[now_cluster_number] = 0;
-    now_cluster_number =
-        driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+    next_cluster_number = (uint16_t)(driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF);
+    driver_state.fat_table.cluster_map[now_cluster_number] = (uint32_t)0;
+    now_cluster_number = next_cluster_number;
   } while (now_cluster_number != 0xFFFF);
   memcpy(entry->name, "\0\0\0\0\0\0\0\0", 8);
   memcpy(entry->ext, "\0\0\0", 3);
@@ -581,15 +581,15 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
 void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
                              struct FAT32DriverRequest req)
 {
-  uint16_t next_cluster_number = entry->cluster_low;
+  uint16_t now_cluster_number = entry->cluster_low;
   uint8_t nth_cluster = 0;
   do
   {
-    read_clusters(req.buf + CLUSTER_SIZE * nth_cluster, next_cluster_number, 1);
-    next_cluster_number =
-        driver_state.fat_table.cluster_map[next_cluster_number] & 0x0000FFFF;
+    read_clusters(req.buf + CLUSTER_SIZE * nth_cluster, now_cluster_number, 1);
+    now_cluster_number =
+        driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF;
     nth_cluster++;
-  } while (next_cluster_number != 0xFFFF);
+  } while (now_cluster_number != 0xFFFF);
 }
 
 void increment_n_of_entry(struct FAT32DirectoryTable *table)
