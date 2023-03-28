@@ -223,7 +223,7 @@ int8_t read(struct FAT32DriverRequest request)
   // Check if the entry isn't empty and matches the requested name and attributes. If it's not satisfied, skip.
   if (!found_matching_file)
   {
-    return 2;
+    return 3;
   }
 
   // Return error when entry is a folder
@@ -231,10 +231,11 @@ int8_t read(struct FAT32DriverRequest request)
   {
     return 1;
   }
+
   // Return error when not enough buffer size
   if (request.buffer_size < entry->filesize)
   {
-    return -1;
+    return 2;
   }
 
   // Buffer size sufficient, reading the content
