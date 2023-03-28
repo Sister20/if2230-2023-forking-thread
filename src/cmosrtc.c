@@ -2,14 +2,14 @@
 
 static struct CMOSRTC rtc;
 
-int32_t get_update_in_progress_flag() {
-      out_byte(cmos_address, 0x0A);
-      return (in_byte(cmos_data) & 0x80);
+uint8_t get_update_in_progress_flag() {
+      out(cmos_address, 0x0A);
+      return (in(cmos_data) & 0x80);
 }
  
-uint8_t get_RTC_register(int32_t reg) {
-      out_byte(cmos_address, reg);
-      return in_byte(cmos_data);
+uint8_t get_RTC_register(uint8_t reg) {
+      out(cmos_address, reg);
+      return in(cmos_data);
 }
  
 void read_rtc() {

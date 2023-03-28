@@ -50,9 +50,9 @@ enum {
       cmos_data    = 0x71
 };
  
-int32_t get_update_in_progress_flag();
+uint8_t get_update_in_progress_flag();
  
-uint8_t get_RTC_register(int32_t reg);
+uint8_t get_RTC_register(uint8_t reg);
  
 void read_rtc();
 
