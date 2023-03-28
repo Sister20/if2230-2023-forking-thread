@@ -2,6 +2,7 @@
 #define _CMOSRTC_H
 
 #include "stdtype.h"
+#include "portio.h"
 
 /* Using reference: https://wiki.osdev.org/CMOS 
     Register  Contents            Range
@@ -41,11 +42,8 @@ struct CMOSTRTC
     uint32_t year;
 } __attribute__((packed));
 
-ReadFromCMOS (uint8_t array []);
-WriteTOCMOS(uint8_t array[]);
-
-void out_byte(int32_t port, int32_t value);
-int32_t in_byte(int32_t port);
+// void out_byte(int32_t port, int32_t value);
+// int32_t in_byte(int32_t port);
  
 enum {
       cmos_address = 0x70,
