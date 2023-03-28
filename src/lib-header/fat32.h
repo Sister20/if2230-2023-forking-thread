@@ -251,6 +251,6 @@ void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT3
 
 void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
 
-void read_file_by_entry(struct FAT32DirectoryEntry *entry, uint8_t index_in_directory_entry, struct FAT32DriverRequest req);
+void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req);
 
 #endif
