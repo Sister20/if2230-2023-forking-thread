@@ -237,7 +237,7 @@ int8_t read(struct FAT32DriverRequest request)
   }
 
   // Buffer size sufficient, reading the content
-  read_file_by_entry(entry, index_of_matching_file, request);
+  read_file_by_entry(entry, request);
 
   return 0;
 }
@@ -481,15 +481,17 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverR
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 }
 
-void read_file_by_entry(struct FAT32DirectoryEntry *entry, uint8_t index_in_directory_entry, struct FAT32DriverRequest req)
+void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
   uint16_t next_cluster_number = entry->cluster_low;
+  uint8_t nth_cluster = 0;
   do
   {
-    read_clusters(req.buf + CLUSTER_SIZE * index_in_directory_entry, next_cluster_number,
+    read_clusters(req.buf + CLUSTER_SIZE * nth_cluster, next_cluster_number,
                   1);
     next_cluster_number =
         driver_state.fat_table.cluster_map[next_cluster_number] &
         0x0000FFFF;
+    nth_cluster++;
   } while (next_cluster_number != 0xFFFF);
 }
