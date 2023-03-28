@@ -443,9 +443,19 @@ void create_file_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry 
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry)
 {
+  uint16_t now_cluster_number = entry->cluster_low;
   struct FAT32DirectoryTable subdir_table;
-  read_clusters(&subdir_table, entry->cluster_low, 1);
-  return subdir_table.n_of_entry == 1;
+  bool found_filled = FALSE;
+  bool first_cluster = TRUE;
+  do
+  {
+    read_clusters(&subdir_table, now_cluster_number, 1);
+    uint16_t next_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+    now_cluster_number = driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+    found_filled = subdir_table.n_of_entry > (first_cluster ? 1 : 0);
+    first_cluster = FALSE;
+  } while (now_cluster_number != 0xFFFF && !found_filled);
+  return !found_filled;
 }
 
 bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
@@ -467,6 +477,14 @@ bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
 
 void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
+  uint16_t now_cluster_number = entry->cluster_low;
+  do
+  {
+    uint16_t next_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+    driver_state.fat_table.cluster_map[now_cluster_number] = 0;
+    now_cluster_number = driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+  } while (now_cluster_number != 0xFFFF);
+
   memcpy(entry->name, "\0\0\0\0\0\0\0\0", 8);
   entry->user_attribute = 0;
   entry->attribute = 0;
