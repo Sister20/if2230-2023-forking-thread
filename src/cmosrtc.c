@@ -94,8 +94,8 @@ struct CMOSRTC get_time() {
  * 25-31 = years bit
 */
 uint32_t get_FTTimestamp_time() {
-      read_rtc();
-      return CMOSRTC_to_FTTimestamp(rtc);
+      struct CMOSRTC rtcTimestamp = get_time();
+      return CMOSRTC_to_FTTimestamp(rtcTimestamp);
 }
 
 /**
