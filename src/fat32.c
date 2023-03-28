@@ -158,6 +158,7 @@ void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
   memcpy(dir_table->table[0].name, name, 8);
   dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
   dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
+  dir_table->n_of_entry = 1;
 }
 
 int8_t read_directory(struct FAT32DriverRequest request)
@@ -189,13 +190,13 @@ int8_t read_directory(struct FAT32DriverRequest request)
   }
 
   // Return error when the buffer size is insufficient
-  if (request.buffer_size < entry->filesize)
+  if (request.buffer_size < entry->n_of_occupied_cluster * CLUSTER_SIZE)
   {
     return -1;
   }
 
   // Enough size, read the cluster to the buffer
-  read_clusters(request.buf, entry->cluster_high, 1);
+  read_directory_by_entry(entry, request);
   return 0;
 }
 
@@ -237,7 +238,7 @@ int8_t read(struct FAT32DriverRequest request)
   }
 
   // Buffer size sufficient, reading the content
-  read_file_by_entry(entry, request);
+  read_directory_by_entry(entry, request);
 
   return 0;
 }
@@ -335,7 +336,7 @@ int8_t delete(struct FAT32DriverRequest request)
   // Found a matching directory entry, check if subdirectory empty or not
   if (is_subdirectory(entry))
   {
-    if (!is_subdirectory_recursively_empty(entry))
+    if (!is_subdirectory_immediately_empty(entry))
     {
       return 2;
     }
@@ -383,12 +384,16 @@ int ceil(int a, int b)
 void create_subdirectory_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
   driver_state.fat_table.cluster_map[cluster_number] = FAT32_FAT_END_OF_FILE;
+
+  // Increment the number of entry in its targeted parent's directory table
+  increment_n_of_entry(&(driver_state.dir_table_buf));
   memcpy(entry->name, req.name, 8);
   entry->filesize = req.buffer_size;
   entry->cluster_high = (uint16_t)cluster_number >> 16;
   entry->cluster_low = (uint16_t)cluster_number & 0x0000FFFF;
   entry->attribute = (uint8_t)ATTR_SUBDIRECTORY;
   entry->user_attribute = (uint8_t)UATTR_NOT_EMPTY;
+  entry->n_of_occupied_cluster = 1;
   struct FAT32DirectoryTable new_directory;
   init_directory_table(&new_directory, req.name,
                        req.parent_cluster_number);
@@ -405,6 +410,8 @@ void create_subdirectory_from_entry(uint32_t cluster_number, struct FAT32Directo
 
 void create_file_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
+  // Increment the number of entry in its targeted parent's directory table
+  increment_n_of_entry(&(driver_state.dir_table_buf));
   int required_clusters = ceil(req.buffer_size, CLUSTER_SIZE);
 
   for (int i = 0; i < required_clusters; i++)
@@ -429,9 +436,27 @@ void create_file_from_entry(uint32_t cluster_number, struct FAT32DirectoryEntry 
   entry->cluster_high = cluster_number >> 16;
   entry->cluster_low = cluster_number & 0x0000FFFF;
   entry->user_attribute = UATTR_NOT_EMPTY;
+  entry->n_of_occupied_cluster = required_clusters;
   write_clusters(&driver_state.fat_table, 1, 1);
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 };
+
+bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry)
+{
+  uint16_t now_cluster_number = entry->cluster_low;
+  struct FAT32DirectoryTable subdir_table;
+  bool found_filled = FALSE;
+  bool first_cluster = TRUE;
+  do
+  {
+    read_clusters(&subdir_table, now_cluster_number, 1);
+    uint16_t next_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+    now_cluster_number = driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+    found_filled = subdir_table.n_of_entry > (first_cluster ? 1 : 0);
+    first_cluster = FALSE;
+  } while (now_cluster_number != 0xFFFF && !found_filled);
+  return !found_filled;
+}
 
 bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
 {
@@ -452,12 +477,25 @@ bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
 
 void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
+  uint16_t now_cluster_number = entry->cluster_low;
+  do
+  {
+    uint16_t next_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
+    driver_state.fat_table.cluster_map[now_cluster_number] = 0;
+    now_cluster_number = driver_state.fat_table.cluster_map[next_cluster_number] & 0xFFFF;
+  } while (now_cluster_number != 0xFFFF);
+
   memcpy(entry->name, "\0\0\0\0\0\0\0\0", 8);
   entry->user_attribute = 0;
   entry->attribute = 0;
   driver_state.fat_table.cluster_map[entry->cluster_low] = 0;
   entry->cluster_high = 0;
   entry->cluster_low = 0;
+  entry->n_of_occupied_cluster = 0;
+
+  // Decrement the number of entry in its targeted parent's directory table
+  decrement_n_of_entry(&(driver_state.dir_table_buf));
+
   write_clusters(&driver_state.fat_table, 1, 1);
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 }
@@ -477,11 +515,16 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverR
   entry->cluster_low = 0;
   entry->user_attribute = 0;
   entry->attribute = 0;
+  entry->n_of_occupied_cluster = 0;
+
+  // Decrement the number of entry in its targeted parent's directory table
+  decrement_n_of_entry(&(driver_state.dir_table_buf));
+
   write_clusters(&driver_state.fat_table, 1, 1);
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 }
 
-void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
+void read_directory_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverRequest req)
 {
   uint16_t next_cluster_number = entry->cluster_low;
   uint8_t nth_cluster = 0;
@@ -494,4 +537,19 @@ void read_file_by_entry(struct FAT32DirectoryEntry *entry, struct FAT32DriverReq
         0x0000FFFF;
     nth_cluster++;
   } while (next_cluster_number != 0xFFFF);
+}
+
+bool increment_n_of_entry(struct FAT32DirectoryTable *table)
+{
+  (table->n_of_entry)++;
+}
+
+bool decrement_n_of_entry(struct FAT32DirectoryTable *table)
+{
+  (table->n_of_entry)--;
+}
+
+bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir)
+{
+  return subdir->n_of_entry >= (CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry));
 }
