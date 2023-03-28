@@ -173,7 +173,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
        i++)
   {
     entry = &(driver_state.dir_table_buf.table[i]);
-    found_matching_file = !(is_dir_empty(entry)) &&
+    found_matching_file = !is_dir_empty(entry) &&
                           is_dir_name_same(entry, request);
     found_matching_directory = found_matching_file && is_subdirectory(entry);
   }
@@ -212,7 +212,7 @@ int8_t read(struct FAT32DriverRequest request)
        i++)
   {
     entry = &(driver_state.dir_table_buf.table[i]);
-    found_matching_file = !(is_dir_empty(entry)) &&
+    found_matching_file = !is_dir_empty(entry) &&
                           is_dir_name_ext_same(entry, request);
     if (found_matching_file)
     {
