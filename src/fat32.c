@@ -173,6 +173,12 @@ int8_t read_directory(struct FAT32DriverRequest request)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
+  // If given parent cluster number isn't the head of a directory, return error
+  if (is_dirtable_child(&driver_state.dir_table_buf))
+  {
+    return 3;
+  }
+
   // Iterate through the directory entries, including traversal through all of directory's cluster and find the matching one
   struct FAT32DirectoryEntry *entry;
   bool found_matching_directory = FALSE;
@@ -237,6 +243,7 @@ int8_t read(struct FAT32DriverRequest request)
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
   read_clusters(&driver_state.fat_table, 1, 1);
 
+  // If given parent cluster number isn't the head of a directory, return error
   if (is_dirtable_child(&driver_state.dir_table_buf))
   {
     return 4;
@@ -306,6 +313,12 @@ int8_t write(struct FAT32DriverRequest request)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
   read_clusters(&driver_state.fat_table, 1, 1);
+
+  // If given parent cluster number isn't the head of a directory, return error
+  if (!is_dirtable_child(&driver_state.dir_table_buf))
+  {
+    return 2;
+  }
 
   if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
       !is_parent_cluster_valid(request))
@@ -410,6 +423,12 @@ int8_t write(struct FAT32DriverRequest request)
 int8_t delete(struct FAT32DriverRequest request)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+
+  // If given parent cluster number isn't the head of a directory, return error
+  if (!is_dirtable_child(&driver_state.dir_table_buf))
+  {
+    return 4;
+  }
 
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;

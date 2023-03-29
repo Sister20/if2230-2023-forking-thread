@@ -232,7 +232,7 @@ void read_clusters(void *ptr, uint32_t cluster_number, uint8_t cluster_count);
  *                ext is unused,
  *                parent_cluster_number is target directory table to read,
  *                buffer_size must be exactly sizeof(struct FAT32DirectoryTable)
- * @return Error code: 0 success - 1 not a folder - 2 not found - -1 unknown
+ * @return Error code: 0 success - 1 not a folder - 2 not found - -1 unknown - 3 invalid parent cluster
  */
 int8_t read_directory(struct FAT32DriverRequest request);
 
@@ -262,7 +262,7 @@ int8_t write(struct FAT32DriverRequest request);
  *
  * @param request buf and buffer_size is unused
  * @return Error code: 0 success - 1 not found - 2 folder is not empty - -1
- * unknown
+ * unknown - 4 invalid parent cluster
  */
 int8_t delete(struct FAT32DriverRequest request);
 
