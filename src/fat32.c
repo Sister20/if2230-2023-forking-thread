@@ -338,7 +338,7 @@ int8_t write(struct FAT32DriverRequest request)
   // Determine whether we're creating a file or a folder
   bool is_creating_directory = request.buffer_size == 0;
 
-  if (!is_requested_directory_already_exist(request))
+  if (is_requested_directory_already_exist(request))
   {
     return 1;
   }
