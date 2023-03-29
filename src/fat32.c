@@ -382,19 +382,24 @@ int8_t write(struct FAT32DriverRequest request)
   uint16_t prev_cluster_number;
   bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
+
+  // framebuffer_write(10, 0, 'a' + driver_state.dir_table_buf.table->n_of_entries, 0x7, 0x0);
+
   while (!end_of_directory && !found_empty_entry)
   {
     for (uint8_t i = 1; (i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)) &&
                         !found_empty_entry;
          i++)
     {
-      framebuffer_write(2, 0, i + 33, 0x7, 0x0);
+      
       entry = &(driver_state.dir_table_buf.table[i]);
 
       // Skip attempting to write if it's not empty
       found_empty_entry = is_entry_empty(entry);
+      // if(!found_empty_entry && i < 10) framebuffer_write(i, 0, 'z', 0x7, 0x0);
     }
 
+    if (found_empty_entry) continue;
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
     end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
@@ -413,6 +418,7 @@ int8_t write(struct FAT32DriverRequest request)
     }
   }
 
+
   // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
   {
@@ -428,7 +434,16 @@ int8_t write(struct FAT32DriverRequest request)
 
     // Set the entry to be inserted into as the first element of table of the newly created cluster
     entry = &(driver_state.dir_table_buf.table[1]);
+    // framebuffer_write(11, 0, 'M', 0x7, 0x0);
   }
+
+  else
+  {
+    // framebuffer_write(11, 0, 'a' + now_cluster_number, 0x7, 0x0);
+    request.parent_cluster_number = now_cluster_number;
+    
+  }
+
 
   // Create a directory
   if (is_creating_directory)
@@ -621,7 +636,9 @@ void create_file_from_entry(uint32_t cluster_number,
   memcpy(entry->name, req.name, 8);
   memcpy(entry->ext, req.ext, 3);
   entry->filesize = req.buffer_size;
+  entry->attribute = (uint8_t)0;
   entry->user_attribute = UATTR_NOT_EMPTY;
+
   write_clusters(&driver_state.fat_table, 1, 1);
   write_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 };
