@@ -30,6 +30,7 @@
 
 /* -- FAT32 DirectoryEntry constants -- */
 #define ATTR_SUBDIRECTORY 0b00010000
+#define ATTR_SUBDIRECTORY_CHILD 0b00010001
 #define UATTR_NOT_EMPTY 0b10101010
 
 // Boot sector signature for this file system "FAT32 - IF2230 edition"
@@ -76,7 +77,7 @@ struct FAT32FileAllocationTable
  * @param modified_date  Unused / optional
  * @param cluster_low    Lower 16-bit of cluster number
  * @param filesize       Filesize of this file, if this is directory / folder,
- * filesize is 0
+ * filesize is the number of entry it contains
  */
 struct FAT32DirectoryEntry
 {
@@ -109,7 +110,6 @@ struct FAT32DirectoryTable
 {
   struct FAT32DirectoryEntry
       table[CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)];
-  uint8_t n_of_entry;
 } __attribute__((packed));
 
 /* -- FAT32 Driver -- */
@@ -168,6 +168,16 @@ uint32_t cluster_to_lba(uint32_t cluster);
  */
 void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
                           uint32_t parent_dir_cluster);
+
+/**
+ * @brief Initialize DirectoryTable value for a child cluster of a Directory. Sets the first element and its attributes to show that they are a child
+ *
+ * @param dir_table
+ * @param name
+ * @param parent_dir_cluster
+ */
+void init_directory_table_child(struct FAT32DirectoryTable *dir_table, char *name,
+                                uint32_t parent_dir_cluster);
 
 /**
  * Checking whether filesystem signature is missing or not in boot sector
@@ -293,9 +303,9 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
-void increment_n_of_entry(struct FAT32DirectoryTable *table);
+void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
-void decrement_n_of_entry(struct FAT32DirectoryTable *table);
+void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
