@@ -331,9 +331,9 @@ int8_t write(struct FAT32DriverRequest request)
     return 2;
   }
 
-  if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
-      !is_parent_cluster_valid(request))
-    return 2;
+  // if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
+  //     !is_parent_cluster_valid(request))
+  //   return 2;
 
   // Determine whether we're creating a file or a folder
   bool is_creating_directory = request.buffer_size == 0;
