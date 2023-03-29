@@ -33,12 +33,12 @@ void kernel_setup(void)
         .buffer_size = 0,
     };
 
-    framebuffer_write(6, 0, (char)(94), 0x7, 0x0);
     write(request); // Create folder "ikanaide"
     memcpy(request.name, "kano1\0\0\0", 8);
     write(request); // Create folder "kano1"
 
     memcpy(request.name, "ikanaide", 8);
+    memcpy(request.ext, "\0\0\0", 3);
     delete (request); // Delete first folder, thus creating hole in FS
 
     memcpy(request.name, "daijoubu", 8);
@@ -54,5 +54,6 @@ void kernel_setup(void)
     request.buffer_size = 5 * CLUSTER_SIZE;
     read(request); // Success read on file "daijoubu"
 
-    while (TRUE);
+    while (TRUE)
+        ;
 }
