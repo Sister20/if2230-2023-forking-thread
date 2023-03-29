@@ -337,4 +337,24 @@ void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint16_t prev_cluster_number, struct FAT32DriverRequest *req);
 
+/*** Timestamp management ***/
+
+/**
+ * @brief Set the directory entry's create_date and create_time to current date and time
+ * @param entry
+*/
+void set_create_datetime(struct FAT32DirectoryEntry *entry);
+
+/**
+ * @brief Set the directory entry's modified_date and modified_time to current date and time
+ * @param entry
+*/
+void set_modified_datetime(struct FAT32DirectoryEntry *entry);
+
+/**
+ * @brief Set the directory entry's access_date to current date
+ * @param entry
+*/
+void set_access_date(struct FAT32DirectoryEntry *entry);
+
 #endif

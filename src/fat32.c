@@ -432,9 +432,7 @@ int8_t write(struct FAT32DriverRequest request)
     entry = &(driver_state.dir_table_buf.table[1]);
   }
 
-  uint32_t FTTimestamp = get_FTTimestamp_time();
-  entry->create_time = (FTTimestamp & 0x0000FFFF);
-  entry->create_date = ((FTTimestamp & 0xFFFF0000) >> 16);
+  set_create_datetime(entry);
   // Create a directory
   if (is_creating_directory)
   {
@@ -908,3 +906,20 @@ bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint1
   req->parent_cluster_number = new_cluster_number_directory;
   return TRUE;
 };
+
+void set_create_datetime(struct FAT32DirectoryEntry *entry) {
+  uint32_t FTTimestamp = get_FTTimestamp_time();
+  entry->create_date = ((FTTimestamp & 0xFFFF0000) >> 16);
+  entry->create_time = (FTTimestamp & 0x0000FFFF);
+}
+
+void set_modified_datetime(struct FAT32DirectoryEntry *entry) {
+  uint32_t FTTimestamp = get_FTTimestamp_time();
+  entry->modified_date = ((FTTimestamp & 0xFFFF0000) >> 16);
+  entry->modified_time = (FTTimestamp & 0x0000FFFF);
+}
+
+void set_access_date(struct FAT32DirectoryEntry *entry) {
+  uint32_t FTTimestamp = get_FTTimestamp_time();
+  entry->access_date = ((FTTimestamp & 0xFFFF0000) >> 16);
+}
