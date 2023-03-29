@@ -326,4 +326,6 @@ uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry);
 
 bool is_requested_directory_already_exist(struct FAT32DriverRequest req);
 
+bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint16_t prev_cluster_number, struct FAT32DriverRequest *req, struct FAT32DirectoryEntry *entry);
+
 #endif

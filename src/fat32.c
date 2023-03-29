@@ -314,7 +314,7 @@ int8_t write(struct FAT32DriverRequest request)
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
   read_clusters(&driver_state.fat_table, 1, 1);
 
-  // If given parent cluster number isn't the head of a directory, return error
+  // If the given parent cluster number isn't the head of a directory, return error
   if (!is_dirtable_child(&driver_state.dir_table_buf))
   {
     return 2;
@@ -341,7 +341,7 @@ int8_t write(struct FAT32DriverRequest request)
   bool check_empty = FALSE;
   uint32_t new_cluster_number = 0;
   int count = 0;
-  uint32_t last_cluster_number;
+  uint32_t last_occupied_cluster_number;
 
   // Iterate through the directory entries and find empty cluster
   for (int i = 3; i < CLUSTER_MAP_SIZE && !check_empty; i++)
@@ -354,12 +354,12 @@ int8_t write(struct FAT32DriverRequest request)
       if (count == 0)
         new_cluster_number = i;
       count++;
-      last_cluster_number = i;
+      last_occupied_cluster_number = i;
       check_empty = (count == required_clusters);
     }
   }
 
-  // If no enough clusters
+  // If not enough clusters to create the requested directory, return erro
   if (!check_empty)
   {
     return -1;
@@ -405,47 +405,12 @@ int8_t write(struct FAT32DriverRequest request)
   // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
   {
+    bool succesfully_created_child_cluster = create_child_cluster_of_subdir(last_occupied_cluster_number, prev_cluster_number, &request, entry);
 
-    // Iterate through the file allocation table and find empty cluster for the directory expansion
-    uint32_t new_cluster_number_directory;
-    bool empty_cluster_found = FALSE;
-
-    // Find clusters after the allocated cluster of the requested directory itself
-    for (int i = last_cluster_number + 1; i < CLUSTER_MAP_SIZE && !empty_cluster_found; i++)
-    {
-      // Check if the cluster is empty, if yes target the cluster
-      empty_cluster_found = driver_state.fat_table.cluster_map[i] == (uint32_t)0;
-
-      if (empty_cluster_found)
-        new_cluster_number_directory = i;
-    }
-
-    // If not enough cluster for expanding directory, return error
-    if (!empty_cluster_found)
+    if (!succesfully_created_child_cluster)
     {
       return -1;
     }
-
-    // Point the last cluster of the directory to the new to-be-allocated-cluster
-    driver_state.fat_table.cluster_map[prev_cluster_number] = new_cluster_number_directory;
-
-    // Point the to-be-allocated-cluster to EOF
-    driver_state.fat_table.cluster_map[new_cluster_number_directory] = FAT32_FAT_END_OF_FILE;
-
-    uint16_t cluster_low_original = driver_state.dir_table_buf.table->cluster_low;
-    uint16_t cluster_high_original = driver_state.dir_table_buf.table->cluster_high;
-    uint32_t parent_dir_cluster = (cluster_high_original << 16) || cluster_low_original;
-
-    // Create and allocate the table
-    struct FAT32DirectoryTable new_cluster_for_directory;
-    init_directory_table_child(&new_cluster_for_directory, driver_state.dir_table_buf.table->name, parent_dir_cluster);
-
-    // Set the new cluster to dir_table_buf to be written in the create_from_entry function
-    driver_state.dir_table_buf = new_cluster_for_directory;
-    request.parent_cluster_number = new_cluster_number_directory;
-
-    // Set the entry to be inserted into as the first element of table of the newly created cluster
-    entry = &(new_cluster_for_directory.table[1]);
   }
 
   // Create a directory
@@ -857,3 +822,49 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req)
 
   return FALSE;
 }
+
+bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint16_t prev_cluster_number, struct FAT32DriverRequest *req, struct FAT32DirectoryEntry *entry)
+{
+  // Iterate through the file allocation table and find empty cluster for the directory expansion
+  uint32_t new_cluster_number_directory;
+  bool empty_cluster_found = FALSE;
+
+  // Find clusters after the allocated cluster of the requested directory itself
+  for (int i = last_occupied_cluster_number + 1; i < CLUSTER_MAP_SIZE && !empty_cluster_found; i++)
+  {
+    // Check if the cluster is empty, if yes target the cluster
+    empty_cluster_found = driver_state.fat_table.cluster_map[i] == (uint32_t)0;
+
+    if (empty_cluster_found)
+      new_cluster_number_directory = i;
+  }
+
+  // If not enough cluster for expanding directory, return error
+  if (!empty_cluster_found)
+  {
+    return FALSE;
+  }
+
+  // Point the last cluster of the directory to the new to-be-allocated-cluster
+  driver_state.fat_table.cluster_map[prev_cluster_number] = new_cluster_number_directory;
+
+  // Point the to-be-allocated-cluster to EOF
+  driver_state.fat_table.cluster_map[new_cluster_number_directory] = FAT32_FAT_END_OF_FILE;
+
+  uint16_t cluster_low_original = driver_state.dir_table_buf.table->cluster_low;
+  uint16_t cluster_high_original = driver_state.dir_table_buf.table->cluster_high;
+  uint32_t parent_dir_cluster = (cluster_high_original << 16) || cluster_low_original;
+
+  // Create and allocate the table
+  struct FAT32DirectoryTable new_cluster_for_directory;
+  init_directory_table_child(&new_cluster_for_directory, driver_state.dir_table_buf.table->name, parent_dir_cluster);
+
+  // Set the new cluster to dir_table_buf to be written in the create_from_entry function
+  driver_state.dir_table_buf = new_cluster_for_directory;
+  req->parent_cluster_number = new_cluster_number_directory;
+
+  // Set the entry to be inserted into as the first element of table of the newly created cluster
+  entry = &(new_cluster_for_directory.table[1]);
+
+  return TRUE;
+};
