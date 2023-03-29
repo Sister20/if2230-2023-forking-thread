@@ -803,7 +803,6 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req)
   bool same_entry = FALSE;
   uint16_t now_cluster_number = req.parent_cluster_number;
   bool end_of_directory = FALSE;
-  struct FAT32DirectoryEntry *entry;
   while (!end_of_directory && !same_entry)
   {
 
@@ -889,7 +888,7 @@ bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint1
   uint16_t cluster_high_original =
       driver_state.dir_table_buf.table->cluster_high;
   uint32_t parent_dir_cluster =
-      (cluster_high_original << 16) || cluster_low_original;
+      (cluster_high_original << 16) | cluster_low_original;
 
   // Create and allocate the table
   struct FAT32DirectoryTable new_cluster_for_directory;
