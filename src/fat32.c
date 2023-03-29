@@ -420,6 +420,7 @@ int8_t write(struct FAT32DriverRequest request)
   // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
   {
+    // Create the child cluster of the target directory. dir_table_buf will be set into the table of the child cluster
     bool succesfully_created_child_cluster = create_child_cluster_of_subdir(last_occupied_cluster_number, prev_cluster_number, &request);
 
     if (!succesfully_created_child_cluster)
@@ -600,10 +601,11 @@ void create_file_from_entry(uint32_t cluster_number,
 
   int required_clusters = ceil(req.buffer_size, CLUSTER_SIZE);
 
+  uint32_t old_cluster_number;
   for (int i = 0; i < required_clusters; i++)
   {
     write_clusters(req.buf + CLUSTER_SIZE * i, cluster_number, 1);
-    uint32_t old_cluster_number = cluster_number;
+    old_cluster_number = cluster_number;
     for (int j = old_cluster_number + 1; j < CLUSTER_MAP_SIZE; j++)
     {
       // Check if the cluster is empty
@@ -615,6 +617,7 @@ void create_file_from_entry(uint32_t cluster_number,
     }
     driver_state.fat_table.cluster_map[old_cluster_number] = cluster_number;
   }
+  driver_state.fat_table.cluster_map[old_cluster_number] = FAT32_FAT_END_OF_FILE;
 
   memcpy(entry->name, req.name, 8);
   memcpy(entry->ext, req.ext, 3);
