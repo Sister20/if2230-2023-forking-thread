@@ -326,7 +326,7 @@ int8_t write(struct FAT32DriverRequest request)
 
   // If the given parent cluster number isn't the head of a directory, return
   // error
-  if (!is_dirtable_child(&driver_state.dir_table_buf))
+  if (is_dirtable_child(&driver_state.dir_table_buf))
   {
     return 2;
   }
