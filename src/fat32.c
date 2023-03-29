@@ -355,6 +355,7 @@ int8_t delete(struct FAT32DriverRequest request)
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
+  // bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3);
   for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
                       !found_directory;
        i++)
@@ -364,6 +365,25 @@ int8_t delete(struct FAT32DriverRequest request)
         !is_dir_empty(entry) &&
         (is_subdirectory(entry) ? is_dir_name_same(entry, request)
                                 : is_dir_ext_name_same(entry, request));
+
+
+    // if (!is_dir_empty)
+    // {
+    //   if (is_deleting_directory)
+    //   {
+    //     found_directory = is_subdirectory(entry) && is_dir_name_same(entry, request);
+    //   }
+
+    //   else
+    //   {
+    //     found_directory = !is_subdirectory(entry) && is_dir_ext_name_same(entry, request);
+    //   }
+    // }
+
+    // else
+    // {
+    //   found_directory = FALSE;
+    // }
   }
 
   // Failed to find any matching directory
