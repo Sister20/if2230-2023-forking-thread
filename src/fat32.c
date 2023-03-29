@@ -391,21 +391,19 @@ int8_t write(struct FAT32DriverRequest request)
                         !found_empty_entry;
          i++)
     {
-      
+
       entry = &(driver_state.dir_table_buf.table[i]);
 
       // Skip attempting to write if it's not empty
       found_empty_entry = is_entry_empty(entry);
-
     }
 
-    if (found_empty_entry) continue;
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF) == 0xFFFF;
 
-    if (driver_state.dir_table_buf.table->n_of_entries == 64 && end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0);
-    if (driver_state.dir_table_buf.table->n_of_entries == 1 && end_of_directory) framebuffer_write(1, 0, 'b', 0x7, 0x0);
+    // if (driver_state.dir_table_buf.table->n_of_entries == 64 && end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0);
+    // if (driver_state.dir_table_buf.table->n_of_entries == 1 && end_of_directory) framebuffer_write(1, 0, 'b', 0x7, 0x0);
 
     // Update the prev_cluster_number for the purpose of possibly adding more
     // cluster to the directory
@@ -420,7 +418,6 @@ int8_t write(struct FAT32DriverRequest request)
                     1);
     }
   }
-
 
   // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
@@ -440,14 +437,11 @@ int8_t write(struct FAT32DriverRequest request)
     // framebuffer_write(11, 0, 'M', 0x7, 0x0);
   }
 
-
   else
   {
     // framebuffer_write(11, 0, 'a' + now_cluster_number, 0x7, 0x0);
     request.parent_cluster_number = now_cluster_number;
-    
   }
-
 
   set_create_datetime(entry);
 
@@ -927,19 +921,22 @@ bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint1
   return TRUE;
 };
 
-void set_create_datetime(struct FAT32DirectoryEntry *entry) {
+void set_create_datetime(struct FAT32DirectoryEntry *entry)
+{
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->create_date = ((FTTimestamp & 0xFFFF0000) >> 16);
   entry->create_time = (FTTimestamp & 0x0000FFFF);
 }
 
-void set_modified_datetime(struct FAT32DirectoryEntry *entry) {
+void set_modified_datetime(struct FAT32DirectoryEntry *entry)
+{
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->modified_date = ((FTTimestamp & 0xFFFF0000) >> 16);
   entry->modified_time = (FTTimestamp & 0x0000FFFF);
 }
 
-void set_access_date(struct FAT32DirectoryEntry *entry) {
+void set_access_date(struct FAT32DirectoryEntry *entry)
+{
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->access_date = ((FTTimestamp & 0xFFFF0000) >> 16);
 }
