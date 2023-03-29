@@ -243,7 +243,7 @@ int8_t read_directory(struct FAT32DriverRequest request);
  * @param request All attribute will be used for read, buffer_size will limit
  * reading count
  * @return Error code: 0 success - 1 not a file - 2 not enough buffer - 3 not
- * found - -1 unknown
+ * found - -1 unknown - 4 invalid parent cluster
  */
 int8_t read(struct FAT32DriverRequest request);
 
@@ -267,7 +267,7 @@ int8_t write(struct FAT32DriverRequest request);
  */
 int8_t delete(struct FAT32DriverRequest request);
 
-bool is_dir_empty(struct FAT32DirectoryEntry *entry);
+bool is_entry_empty(struct FAT32DirectoryEntry *entry);
 
 bool is_dir_name_same(struct FAT32DirectoryEntry *entry,
                       struct FAT32DriverRequest req);
@@ -307,8 +307,22 @@ void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
 void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
+uint32_t get_subdir_n_of_entry(struct FAT32DirectoryTable *table);
+
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
+bool is_subdirectory_cluster_empty(struct FAT32DirectoryTable *subdir);
+
+/**
+ * @brief Whether the parent cluster to operate on is a valid cluster number or not
+ *
+ * @return true
+ * @return false
+ */
 bool is_parent_cluster_valid(struct FAT32DriverRequest);
+
+bool is_dirtable_child(struct FAT32DirectoryTable *subdir);
+
+uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry);
 
 #endif
