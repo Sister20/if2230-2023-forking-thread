@@ -205,7 +205,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
 
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF) == 0xFFFF;
 
     // If directory is found, get out of the loop
     if (found_matching_directory)
@@ -278,7 +278,7 @@ int8_t read(struct FAT32DriverRequest request)
 
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF) == 0xFFFF;
 
     // If file is found, get out of the loop
     if (found_matching_file)
@@ -405,6 +405,7 @@ int8_t write(struct FAT32DriverRequest request)
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF) == 0xFFFF;
 
     if (driver_state.dir_table_buf.table->n_of_entries == 64 && end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0);
+    if (driver_state.dir_table_buf.table->n_of_entries == 1 && end_of_directory) framebuffer_write(1, 0, 'b', 0x7, 0x0);
 
     // Update the prev_cluster_number for the purpose of possibly adding more
     // cluster to the directory
@@ -510,7 +511,7 @@ int8_t delete(struct FAT32DriverRequest request)
 
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF) == 0xFFFF;
 
     // If file is found, get out of the loop
     if (found_directory)
@@ -858,7 +859,7 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req)
 
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF) == 0xFFFF;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
