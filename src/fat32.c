@@ -158,17 +158,14 @@ void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
   memcpy(dir_table->table[0].name, name, 8);
   dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
   dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
-  dir_table->table[0].filesize = 1;
+  dir_table->table[0].filesize = CLUSTER_SIZE;
+  dir_table->table[0].n_of_entries = 1;
 }
 
 void init_directory_table_child(struct FAT32DirectoryTable *dir_table, char *name,
                                 uint32_t parent_dir_cluster)
 {
   init_directory_table(dir_table, name, parent_dir_cluster);
-  memcpy(dir_table->table[0].name, name, 8);
-  // dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
-  // dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
-  // dir_table->table[0].filesize = 1;
   dir_table->table[0].attribute = ATTR_SUBDIRECTORY_CHILD;
 }
 
@@ -176,18 +173,41 @@ int8_t read_directory(struct FAT32DriverRequest request)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
-  // Iterate through the directory entries and find the matching one
+  // Iterate through the directory entries, including traversal through all of directory's cluster and find the matching one
   struct FAT32DirectoryEntry *entry;
   bool found_matching_directory = FALSE;
   bool found_matching_file = FALSE;
-  for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
-                      !found_matching_directory;
-       i++)
+  bool end_of_directory = FALSE;
+
+  uint16_t now_cluster_number = request.parent_cluster_number;
+  while (!end_of_directory && !found_matching_directory)
   {
-    entry = &(driver_state.dir_table_buf.table[i]);
-    found_matching_file =
-        !is_dir_empty(entry) && is_dir_name_same(entry, request);
-    found_matching_directory = found_matching_file && is_subdirectory(entry);
+
+    // Traverse the table in examined cluster. Starts from 1 because the first entry of the table is the directory itself
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+                        !found_matching_directory;
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+
+      found_matching_file =
+          !is_entry_empty(entry) && is_dir_name_same(entry, request);
+      found_matching_directory = found_matching_file && is_subdirectory(entry);
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
+    // If directory is found, get out of the loop
+    if (found_matching_directory)
+      continue;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
   }
 
   // Return error when entry is not a folder
@@ -215,18 +235,46 @@ int8_t read_directory(struct FAT32DriverRequest request)
 int8_t read(struct FAT32DriverRequest request)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+  read_clusters(&driver_state.fat_table, 1, 1);
 
-  // Iterate through the directory entries and find the matching one
+  if (is_dirtable_child(&driver_state.dir_table_buf))
+  {
+    return 4;
+  }
+
+  // Iterate through the directory entries, including traversal through all of directory's cluster and find the matching one
   struct FAT32DirectoryEntry *entry;
   bool found_matching_file = FALSE;
-  for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
-                      !found_matching_file;
-       i++)
-  {
-    entry = &(driver_state.dir_table_buf.table[i]);
+  bool end_of_directory = FALSE;
 
-    found_matching_file =
-        !is_dir_empty(entry) && is_dir_ext_name_same(entry, request);
+  uint16_t now_cluster_number = request.parent_cluster_number;
+  while (!end_of_directory && !found_matching_file)
+  {
+
+    // Traverse the table in examined cluster. Starts from 1 because the first entry of the table is the directory itself
+    for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+                        !found_matching_file;
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+
+      found_matching_file =
+          !is_entry_empty(entry) && is_dir_ext_name_same(entry, request);
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
+    // If file is found, get out of the loop
+    if (found_matching_file)
+      continue;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
   }
 
   // Check if the entry isn't empty and matches the requested name and
@@ -307,7 +355,7 @@ int8_t write(struct FAT32DriverRequest request)
 
     struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
 
-    if (is_dir_empty(entry))
+    if (is_entry_empty(entry))
       continue;
 
     // Check if it's similar
@@ -338,7 +386,7 @@ int8_t write(struct FAT32DriverRequest request)
     entry = &(driver_state.dir_table_buf.table[i]);
 
     // Skip attempting to write if it's not empty
-    found_empty_entry = is_dir_empty(entry);
+    found_empty_entry = is_entry_empty(entry);
   }
 
   // If there are no empty directories, return error
@@ -365,36 +413,51 @@ int8_t delete(struct FAT32DriverRequest request)
 
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;
+  bool same_directory = FALSE;
+  bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
-  // bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3);
-  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
-                      !found_directory;
-       i++)
+
+  uint16_t now_cluster_number = request.parent_cluster_number;
+  bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3);
+  while (!end_of_directory && !found_directory)
   {
-    entry = &(driver_state.dir_table_buf.table[i]);
-    found_directory =
-        !is_dir_empty(entry) &&
-        (is_subdirectory(entry) ? is_dir_name_same(entry, request)
-                                : is_dir_ext_name_same(entry, request));
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+                        !found_directory;
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+      if (!is_dir_empty)
+      {
+        if (is_deleting_directory)
+        {
+          found_directory = is_subdirectory(entry) && is_dir_name_same(entry, request);
+        }
 
+        else
+        {
+          found_directory = !is_subdirectory(entry) && is_dir_ext_name_same(entry, request);
+        }
+      }
 
-    // if (!is_dir_empty)
-    // {
-    //   if (is_deleting_directory)
-    //   {
-    //     found_directory = is_subdirectory(entry) && is_dir_name_same(entry, request);
-    //   }
+      else
+      {
+        found_directory = FALSE;
+      }
+    }
 
-    //   else
-    //   {
-    //     found_directory = !is_subdirectory(entry) && is_dir_ext_name_same(entry, request);
-    //   }
-    // }
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
 
-    // else
-    // {
-    //   found_directory = FALSE;
-    // }
+    // If file is found, get out of the loop
+    if (found_directory)
+      continue;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
   }
 
   // Failed to find any matching directory
@@ -416,12 +479,12 @@ int8_t delete(struct FAT32DriverRequest request)
     return 0;
   }
 
-  // Not a folder
+  // Not a folder, delete as a file
   delete_file_by_entry(entry, request);
   return 0;
 }
 
-bool is_dir_empty(struct FAT32DirectoryEntry *entry)
+bool is_entry_empty(struct FAT32DirectoryEntry *entry)
 {
   return entry->user_attribute != UATTR_NOT_EMPTY;
 }
@@ -541,7 +604,7 @@ bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
   {
     struct FAT32DirectoryEntry *sub_entry = &(subdir_table.table[j]);
     // Check if the entry not empty
-    if (!is_dir_empty(sub_entry))
+    if (!is_entry_empty(sub_entry))
     {
       return FALSE;
     }
@@ -618,22 +681,28 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
 
 void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 {
-  table->table[0].filesize++;
+  table->table[0].n_of_entries++;
 }
+
+uint32_t get_subdir_n_of_entry(struct FAT32DirectoryTable *table)
+{
+  return table->table[0].n_of_entries;
+};
 
 void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 {
-  table->table[0].filesize--;
+  table->table[0].n_of_entries--;
 }
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir)
 {
-  return subdir->table[0].filesize >=
+  return subdir->table[0].n_of_entries >=
          (CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry));
 }
 
 bool is_parent_cluster_valid(struct FAT32DriverRequest request)
 {
+
   uint32_t target_cluster_number = request.parent_cluster_number;
   int8_t visited_parent[CLUSTER_MAP_SIZE];
   for (uint32_t i = 0; i < CLUSTER_MAP_SIZE; i++)
@@ -643,6 +712,7 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request)
   visited_parent[target_cluster_number] = 1;
 
   struct FAT32DirectoryTable current_parent_table = driver_state.dir_table_buf;
+
   while (target_cluster_number < 512 &&
          visited_parent[target_cluster_number] == 0 &&
          target_cluster_number != ROOT_CLUSTER_NUMBER)
@@ -655,3 +725,17 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request)
 
   return target_cluster_number == ROOT_CLUSTER_NUMBER;
 }
+
+bool is_subdirectory_cluster_empty(struct FAT32DirectoryTable *subdir)
+{
+  return subdir->table[0].n_of_entries == 1;
+};
+bool is_dirtable_child(struct FAT32DirectoryTable *subdir)
+{
+  return subdir->table[0].attribute == ATTR_SUBDIRECTORY_CHILD;
+};
+
+uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry)
+{
+  return entry->filesize / CLUSTER_SIZE;
+};
