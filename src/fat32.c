@@ -324,11 +324,13 @@ int8_t write(struct FAT32DriverRequest request)
       !is_parent_cluster_valid(request))
     return 2;
 
-  bool check_empty = FALSE;
-  uint32_t new_cluster_number = 0;
-
   // Determine whether we're creating a file or a folder
   bool is_creating_directory = request.buffer_size == 0;
+
+  if (!is_requested_directory_already_exist(request))
+  {
+    return 1;
+  }
 
   // Determine the amount of clusters needed
   int required_clusters = ceil(request.buffer_size, CLUSTER_SIZE);
@@ -336,7 +338,10 @@ int8_t write(struct FAT32DriverRequest request)
   if (required_clusters == 0)
     required_clusters++;
 
+  bool check_empty = FALSE;
+  uint32_t new_cluster_number = 0;
   int count = 0;
+  uint32_t last_cluster_number;
 
   // Iterate through the directory entries and find empty cluster
   for (int i = 3; i < CLUSTER_MAP_SIZE && !check_empty; i++)
@@ -349,6 +354,7 @@ int8_t write(struct FAT32DriverRequest request)
       if (count == 0)
         new_cluster_number = i;
       count++;
+      last_cluster_number = i;
       check_empty = (count == required_clusters);
     }
   }
@@ -359,53 +365,87 @@ int8_t write(struct FAT32DriverRequest request)
     return -1;
   }
 
-  // Iterate through the directory entries and find the same folder/file. Return
-  // early if file with the same name already exist.
-  bool same_entry;
-  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
-       i++)
-  {
-
-    struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
-
-    if (is_entry_empty(entry))
-      continue;
-
-    // Check if it's similar
-    if (is_creating_directory)
-    {
-      same_entry = is_dir_name_same(entry, request) && is_subdirectory(entry);
-    }
-    else
-    {
-      same_entry =
-          is_dir_ext_name_same(entry, request) && !is_subdirectory(entry);
-    }
-
-    if (same_entry)
-    {
-      return 1;
-    }
-  }
-
   // Iterate through the directory entries and find empty entry
   bool found_empty_entry = FALSE;
+  uint16_t now_cluster_number = request.parent_cluster_number;
+  uint16_t prev_cluster_number;
+  bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
-  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
-                      !found_empty_entry;
-       i++)
+  while (!end_of_directory && !found_empty_entry)
   {
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+                        !found_empty_entry;
+         i++)
+    {
 
-    entry = &(driver_state.dir_table_buf.table[i]);
+      entry = &(driver_state.dir_table_buf.table[i]);
 
-    // Skip attempting to write if it's not empty
-    found_empty_entry = is_entry_empty(entry);
+      // Skip attempting to write if it's not empty
+      found_empty_entry = is_entry_empty(entry);
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
+    // If file is found, get out of the loop
+    if (found_empty_entry)
+      continue;
+
+    // Update the prev_cluster_number for the purpose of possibly adding more cluster to the directory
+    prev_cluster_number = now_cluster_number;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
   }
 
-  // If there are no empty directories, return error
+  // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
   {
-    return -1;
+
+    // Iterate through the file allocation table and find empty cluster for the directory expansion
+    uint32_t new_cluster_number_directory;
+    bool empty_cluster_found = FALSE;
+
+    // Find clusters after the allocated cluster of the requested directory itself
+    for (int i = last_cluster_number + 1; i < CLUSTER_MAP_SIZE && !empty_cluster_found; i++)
+    {
+      // Check if the cluster is empty, if yes target the cluster
+      empty_cluster_found = driver_state.fat_table.cluster_map[i] == (uint32_t)0;
+
+      if (empty_cluster_found)
+        new_cluster_number_directory = i;
+    }
+
+    // If not enough cluster for expanding directory, return error
+    if (!empty_cluster_found)
+    {
+      return -1;
+    }
+
+    // Point the last cluster of the directory to the new to-be-allocated-cluster
+    driver_state.fat_table.cluster_map[prev_cluster_number] = new_cluster_number_directory;
+
+    // Point the to-be-allocated-cluster to EOF
+    driver_state.fat_table.cluster_map[new_cluster_number_directory] = FAT32_FAT_END_OF_FILE;
+
+    uint16_t cluster_low_original = driver_state.dir_table_buf.table->cluster_low;
+    uint16_t cluster_high_original = driver_state.dir_table_buf.table->cluster_high;
+    uint32_t parent_dir_cluster = (cluster_high_original << 16) || cluster_low_original;
+
+    // Create and allocate the table
+    struct FAT32DirectoryTable new_cluster_for_directory;
+    init_directory_table_child(&new_cluster_for_directory, driver_state.dir_table_buf.table->name, parent_dir_cluster);
+
+    // Set the new cluster to dir_table_buf to be written in the create_from_entry function
+    driver_state.dir_table_buf = new_cluster_for_directory;
+    request.parent_cluster_number = new_cluster_number_directory;
+
+    // Set the entry to be inserted into as the first element of table of the newly created cluster
+    entry = &(new_cluster_for_directory.table[1]);
   }
 
   // Create a directory
@@ -758,3 +798,62 @@ uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry)
 {
   return entry->filesize / CLUSTER_SIZE;
 };
+
+bool is_requested_directory_already_exist(struct FAT32DriverRequest req)
+{
+
+  read_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
+
+  bool is_creating_directory = req.buffer_size == 0;
+
+  // Iterate through the directory entries and find the same folder/file. Return
+  // early if file with the same name already exist.
+  bool same_entry = FALSE;
+  uint16_t now_cluster_number = req.parent_cluster_number;
+  bool end_of_directory = FALSE;
+  struct FAT32DirectoryEntry *entry;
+  while (!end_of_directory && !same_entry)
+  {
+
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
+         i++)
+    {
+
+      struct FAT32DirectoryEntry *entry = &(driver_state.dir_table_buf.table[i]);
+
+      if (is_entry_empty(entry))
+        continue;
+
+      // Check if it's similar
+      if (is_creating_directory)
+      {
+        same_entry = is_dir_name_same(entry, req) && is_subdirectory(entry);
+      }
+      else
+      {
+        same_entry =
+            is_dir_ext_name_same(entry, req) && !is_subdirectory(entry);
+      }
+
+      if (same_entry)
+      {
+        return TRUE;
+      }
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
+  }
+
+  // Reset the dir_table in driver state to the original parent
+  read_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
+
+  return FALSE;
+}

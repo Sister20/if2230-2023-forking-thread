@@ -324,4 +324,6 @@ bool is_dirtable_child(struct FAT32DirectoryTable *subdir);
  */
 uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry);
 
+bool is_requested_directory_already_exist(struct FAT32DriverRequest req);
+
 #endif
