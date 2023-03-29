@@ -195,12 +195,12 @@ int8_t read_directory(struct FAT32DriverRequest request)
       found_matching_directory = found_matching_file && is_subdirectory(entry);
     }
 
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
     // If directory is found, get out of the loop
     if (found_matching_directory)
       continue;
-
-    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
@@ -251,10 +251,6 @@ int8_t read(struct FAT32DriverRequest request)
   while (!end_of_directory && !found_matching_file)
   {
 
-    // If the table in the examined cluster is effectively empty, skip
-    if (get_subdir_n_of_entry(&driver_state.dir_table_buf) <= 1)
-      continue;
-
     // Traverse the table in examined cluster. Starts from 1 because the first entry of the table is the directory itself
     for (uint8_t i = 0; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
                         !found_matching_file;
@@ -266,12 +262,12 @@ int8_t read(struct FAT32DriverRequest request)
           !is_entry_empty(entry) && is_dir_ext_name_same(entry, request);
     }
 
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
     // If file is found, get out of the loop
     if (found_matching_file)
       continue;
-
-    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
@@ -418,15 +414,34 @@ int8_t delete(struct FAT32DriverRequest request)
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;
   bool same_directory = FALSE;
+  bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
-  for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
-                      !found_directory;
-       i++)
+  uint16_t now_cluster_number = request.parent_cluster_number;
+  while (!end_of_directory && !found_directory)
   {
-    entry = &(driver_state.dir_table_buf.table[i]);
-    same_directory = is_subdirectory(entry) ? is_dir_name_same(entry, request) : is_dir_ext_name_same(entry, request);
-    found_directory =
-        !is_entry_empty(entry) && same_directory;
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+                        !found_directory;
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+      same_directory = is_subdirectory(entry) ? is_dir_name_same(entry, request) : is_dir_ext_name_same(entry, request);
+      found_directory =
+          !is_entry_empty(entry) && same_directory;
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last cluster of the directory
+    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+
+    // If file is found, get out of the loop
+    if (found_directory)
+      continue;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number = driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number, 1);
+    }
   }
 
   // Failed to find any matching directory
@@ -448,7 +463,7 @@ int8_t delete(struct FAT32DriverRequest request)
     return 0;
   }
 
-  // Not a folder
+  // Not a folder, delete as a file
   delete_file_by_entry(entry, request);
   return 0;
 }
