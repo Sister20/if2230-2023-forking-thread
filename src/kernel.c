@@ -38,6 +38,7 @@ void kernel_setup(void)
     write(request); // Create folder "kano1"
 
     memcpy(request.name, "ikanaide", 8);
+    memcpy(request.ext, "\0\0\0", 3);
     delete (request); // Delete first folder, thus creating hole in FS
 
     memcpy(request.name, "daijoubu", 8);
