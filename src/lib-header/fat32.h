@@ -67,7 +67,7 @@ struct FAT32FileAllocationTable
  * @param user_attribute If this attribute equal with UATTR_NOT_EMPTY then entry
  * is not empty
  *
- * @param undelete       Unused / optional
+ * @param n_of_entries   The number of entries for the directory table containing the entry. Only defined for the first entry in a table (at least 1)
  * @param create_time    Unused / optional
  * @param create_date    Unused / optional
  * @param access_time    Unused / optional
@@ -76,8 +76,7 @@ struct FAT32FileAllocationTable
  * @param modified_time  Unused / optional
  * @param modified_date  Unused / optional
  * @param cluster_low    Lower 16-bit of cluster number
- * @param filesize       Filesize of this file, if this is directory / folder,
- * filesize is the number of entry it contains
+ * @param filesize       Filesize of this file, if this is directory / folder, filesize is the number of cluster it occupies * cluster size
  */
 struct FAT32DirectoryEntry
 {
@@ -86,7 +85,7 @@ struct FAT32DirectoryEntry
   uint8_t attribute;
   uint8_t user_attribute;
 
-  bool undelete;
+  uint8_t n_of_entries;
   uint16_t create_time;
   uint16_t create_date;
   uint16_t access_date;
@@ -303,12 +302,6 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
-void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table);
-
-void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
-
-uint32_t get_subdir_n_of_entry(struct FAT32DirectoryTable *table);
-
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
 bool is_subdirectory_cluster_empty(struct FAT32DirectoryTable *subdir);
@@ -323,6 +316,12 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest);
 
 bool is_dirtable_child(struct FAT32DirectoryTable *subdir);
 
+/**
+ * @brief Get the number of cluster occupied by a subdirectory
+ *
+ * @param entry
+ * @return uint32_t
+ */
 uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry);
 
 #endif

@@ -158,17 +158,14 @@ void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
   memcpy(dir_table->table[0].name, name, 8);
   dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
   dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
-  dir_table->table[0].filesize = 1;
+  dir_table->table[0].filesize = CLUSTER_SIZE;
+  dir_table->table[0].n_of_entries = 1;
 }
 
 void init_directory_table_child(struct FAT32DirectoryTable *dir_table, char *name,
                                 uint32_t parent_dir_cluster)
 {
   init_directory_table(dir_table, name, parent_dir_cluster);
-  memcpy(dir_table->table[0].name, name, 8);
-  // dir_table->table[0].cluster_high = parent_dir_cluster >> 16;
-  // dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
-  // dir_table->table[0].filesize = 1;
   dir_table->table[0].attribute = ATTR_SUBDIRECTORY_CHILD;
 }
 
@@ -185,10 +182,6 @@ int8_t read_directory(struct FAT32DriverRequest request)
   uint16_t now_cluster_number = request.parent_cluster_number;
   while (!end_of_directory && !found_matching_directory)
   {
-
-    // If the table in the examined cluster is effectively empty, skip
-    if (get_subdir_n_of_entry(&driver_state.dir_table_buf) <= 1)
-      continue;
 
     // Traverse the table in examined cluster. Starts from 1 because the first entry of the table is the directory itself
     for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
@@ -229,7 +222,7 @@ int8_t read_directory(struct FAT32DriverRequest request)
   }
 
   // Return error when the buffer size is insufficient
-  if (request.buffer_size < get_n_of_cluster_subdir(entry) * CLUSTER_SIZE)
+  if (request.buffer_size < entry->filesize)
   {
     return -1;
   }
@@ -657,17 +650,17 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
 
 void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 {
-  table->table[0].filesize++;
+  table->table[0].n_of_entries++;
 }
 
 uint32_t get_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 {
-  return table->table[0].filesize;
+  return table->table[0].n_of_entries;
 };
 
 void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 {
-  table->table[0].filesize--;
+  table->table[0].n_of_entries--;
 }
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir)
@@ -713,14 +706,5 @@ bool is_dirtable_child(struct FAT32DirectoryTable *subdir)
 
 uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry)
 {
-  uint16_t now_cluster_number = entry->cluster_low;
-  uint32_t nth_cluster = 0;
-  do
-  {
-    now_cluster_number =
-        driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF;
-    nth_cluster++;
-  } while (now_cluster_number != 0xFFFF);
-
-  return nth_cluster;
+  return entry->filesize / CLUSTER_SIZE;
 };
