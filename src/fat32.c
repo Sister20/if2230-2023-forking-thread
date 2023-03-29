@@ -384,11 +384,11 @@ int8_t write(struct FAT32DriverRequest request)
   struct FAT32DirectoryEntry *entry;
   while (!end_of_directory && !found_empty_entry)
   {
-    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
+    for (uint8_t i = 1; (i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)) &&
                         !found_empty_entry;
          i++)
     {
-
+      framebuffer_write(2, 0, i + 33, 0x7, 0x0);
       entry = &(driver_state.dir_table_buf.table[i]);
 
       // Skip attempting to write if it's not empty
@@ -398,10 +398,6 @@ int8_t write(struct FAT32DriverRequest request)
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
     end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
-
-    // If file is found, get out of the loop
-    if (found_empty_entry)
-      continue;
 
     // Update the prev_cluster_number for the purpose of possibly adding more
     // cluster to the directory
@@ -420,6 +416,8 @@ int8_t write(struct FAT32DriverRequest request)
   // If there are no empty directories, create new cluster from the requested parent cluster
   if (!found_empty_entry)
   {
+
+    framebuffer_write(0, 0, 'n', 0x7, 0x0);
     // Create the child cluster of the target directory. dir_table_buf will be set into the table of the child cluster
     bool succesfully_created_child_cluster = create_child_cluster_of_subdir(last_occupied_cluster_number, prev_cluster_number, &request);
 
