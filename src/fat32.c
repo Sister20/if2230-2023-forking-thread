@@ -426,7 +426,7 @@ int8_t delete(struct FAT32DriverRequest request)
          i++)
     {
       entry = &(driver_state.dir_table_buf.table[i]);
-      if (!is_dir_empty)
+      if (!is_entry_empty(entry))
       {
         if (is_deleting_directory)
         {
