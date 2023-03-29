@@ -449,7 +449,7 @@ int8_t delete(struct FAT32DriverRequest request)
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
   // If given parent cluster number isn't the head of a directory, return error
-  if (!is_dirtable_child(&driver_state.dir_table_buf))
+  if (is_dirtable_child(&driver_state.dir_table_buf))
   {
     return 4;
   }
@@ -461,7 +461,7 @@ int8_t delete(struct FAT32DriverRequest request)
   struct FAT32DirectoryEntry *entry;
 
   uint16_t now_cluster_number = request.parent_cluster_number;
-  bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3);
+  bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3) == 0;
   while (!end_of_directory && !found_directory)
   {
     for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
@@ -513,6 +513,7 @@ int8_t delete(struct FAT32DriverRequest request)
   {
     return 1;
   }
+
   // Found a matching directory entry, check if subdirectory empty or not
   if (is_subdirectory(entry))
   {
@@ -629,18 +630,17 @@ void create_file_from_entry(uint32_t cluster_number,
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry)
 {
+  // framebuffer_write(0, 0, (char)(entry->cluster_low + 94), 0x7, 0x0);
   uint16_t now_cluster_number = entry->cluster_low;
   struct FAT32DirectoryTable subdir_table;
   bool found_filled = FALSE;
-  bool first_cluster = TRUE;
   do
   {
     read_clusters(&subdir_table, now_cluster_number, 1);
     now_cluster_number =
         driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF;
 
-    found_filled = subdir_table.table[0].filesize > (first_cluster ? 1 : 0);
-    first_cluster = FALSE;
+    found_filled = !is_subdirectory_cluster_empty(&subdir_table);
   } while (now_cluster_number != 0xFFFF && !found_filled);
   return !found_filled;
 }
