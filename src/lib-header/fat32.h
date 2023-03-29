@@ -37,7 +37,8 @@
 extern const uint8_t fs_signature[BLOCK_SIZE];
 
 // Cluster buffer data type - @param buf Byte buffer with size of CLUSTER_SIZE
-struct ClusterBuffer {
+struct ClusterBuffer
+{
   uint8_t buf[CLUSTER_SIZE];
 } __attribute__((packed));
 
@@ -48,7 +49,8 @@ struct ClusterBuffer {
  *
  * @param cluster_map Containing cluster map of FAT32
  */
-struct FAT32FileAllocationTable {
+struct FAT32FileAllocationTable
+{
   uint32_t cluster_map[CLUSTER_MAP_SIZE];
 } __attribute__((packed));
 
@@ -79,7 +81,8 @@ struct FAT32FileAllocationTable {
  * @param filesize       Filesize of this file, if this is directory / folder,
  * filesize is the number of cluster it occupies * cluster size
  */
-struct FAT32DirectoryEntry {
+struct FAT32DirectoryEntry
+{
   char name[8];
   char ext[3];
   uint8_t attribute;
@@ -105,7 +108,8 @@ struct FAT32DirectoryEntry {
  * @param table Table of DirectoryEntry that span within 1 cluster
  * @param n_of_entry The number of entry in the table
  */
-struct FAT32DirectoryTable {
+struct FAT32DirectoryTable
+{
   struct FAT32DirectoryEntry
       table[CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)];
 } __attribute__((packed));
@@ -120,7 +124,8 @@ struct FAT32DirectoryTable {
  * @param dir_table_buf Buffer for directory table
  * @param cluster_buf   Buffer for cluster
  */
-struct FAT32DriverState {
+struct FAT32DriverState
+{
   struct FAT32FileAllocationTable fat_table;
   struct FAT32DirectoryTable dir_table_buf;
   struct ClusterBuffer cluster_buf;
@@ -137,7 +142,8 @@ struct FAT32DriverState {
  * @param buffer_size           Buffer size, CRUD operation will have different
  * behaviour with this attribute
  */
-struct FAT32DriverRequest {
+struct FAT32DriverRequest
+{
   void *buf;
   char name[8];
   char ext[3];
@@ -326,11 +332,8 @@ uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry);
 
 bool is_requested_directory_already_exist(struct FAT32DriverRequest req);
 
-bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number,
-                                    uint16_t prev_cluster_number,
-                                    struct FAT32DriverRequest *req,
-                                    struct FAT32DirectoryEntry *entry);
 void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
+bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint16_t prev_cluster_number, struct FAT32DriverRequest *req);
 
 #endif
