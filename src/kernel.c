@@ -6,7 +6,7 @@
 #include "lib-header/interrupt.h"
 #include "lib-header/idt.h"
 #include "lib-header/keyboard.h"
-#include "lib-header/fat32.h"
+#include "lib-header/cmosrtc.h"
 #include "lib-header/disk.h"
 
 void kernel_setup(void)
@@ -20,39 +20,13 @@ void kernel_setup(void)
     initialize_filesystem_fat32();
     keyboard_state_activate();
 
-    struct ClusterBuffer cbuf[5];
-    for (uint32_t i = 0; i < 5; i++)
-        for (uint32_t j = 0; j < CLUSTER_SIZE; j++)
-            cbuf[i].buf[j] = i + 'a';
-
-    struct FAT32DriverRequest request = {
-        .buf = cbuf,
-        .name = "ikanaide",
-        .ext = "uwu",
-        .parent_cluster_number = ROOT_CLUSTER_NUMBER,
-        .buffer_size = 0,
-    };
-
-    framebuffer_write(6, 0, (char)(94), 0x7, 0x0);
-    write(request); // Create folder "ikanaide"
-    memcpy(request.name, "kano1\0\0\0", 8);
-    write(request); // Create folder "kano1"
-
-    memcpy(request.name, "ikanaide", 8);
-    delete (request); // Delete first folder, thus creating hole in FS
-
-    memcpy(request.name, "daijoubu", 8);
-    request.buffer_size = 5 * CLUSTER_SIZE;
-    write(request); // Create fragmented file "daijoubu"
-
-    struct ClusterBuffer readcbuf;
-    read_clusters(&readcbuf, ROOT_CLUSTER_NUMBER + 1, 1);
-    // If read properly, readcbuf should filled with 'a'
-
-    request.buffer_size = CLUSTER_SIZE;
-    read(request); // Failed read due not enough buffer size
-    request.buffer_size = 5 * CLUSTER_SIZE;
-    read(request); // Success read on file "daijoubu"
-
-    while (TRUE);
+    uint32_t FTtime = get_FTTimestamp_time();
+    char time[32];
+    int i;
+    for (i = 0; i < 32; i++)
+    {
+        time[0] = (FTtime & 1);
+        FTtime = FTtime >> 1;
+    }
+    framebuffer_write_row(0,0,time,0,0);
 }
