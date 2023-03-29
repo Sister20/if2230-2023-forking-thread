@@ -396,13 +396,15 @@ int8_t write(struct FAT32DriverRequest request)
 
       // Skip attempting to write if it's not empty
       found_empty_entry = is_entry_empty(entry);
-      // if(!found_empty_entry && i < 10) framebuffer_write(i, 0, 'z', 0x7, 0x0);
+
     }
 
     if (found_empty_entry) continue;
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
-    end_of_directory = (now_cluster_number & 0x0000FFFF) == 0xFFFF;
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF) == 0xFFFF;
+
+    if (driver_state.dir_table_buf.table->n_of_entries == 64 && end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0);
 
     // Update the prev_cluster_number for the purpose of possibly adding more
     // cluster to the directory
@@ -444,7 +446,6 @@ int8_t write(struct FAT32DriverRequest request)
     request.parent_cluster_number = now_cluster_number;
     
   }
-
 
 
   set_create_datetime(entry);
