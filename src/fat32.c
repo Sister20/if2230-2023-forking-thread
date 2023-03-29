@@ -398,16 +398,19 @@ int8_t write(struct FAT32DriverRequest request)
       found_empty_entry = is_entry_empty(entry);
     }
 
+    // Update the prev_cluster_number for the purpose of possibly adding more
+    // cluster to the directory
+    prev_cluster_number = now_cluster_number;
+
+    if (found_empty_entry)
+      continue;
+
     // If the cluster_number is EOF, then we've finished examining the last
     // cluster of the directory
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0xFFFF) == 0xFFFF;
 
     // if (driver_state.dir_table_buf.table->n_of_entries == 64 && end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0);
     // if (driver_state.dir_table_buf.table->n_of_entries == 1 && end_of_directory) framebuffer_write(1, 0, 'b', 0x7, 0x0);
-
-    // Update the prev_cluster_number for the purpose of possibly adding more
-    // cluster to the directory
-    prev_cluster_number = now_cluster_number;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
@@ -474,6 +477,7 @@ int8_t delete(struct FAT32DriverRequest request)
   struct FAT32DirectoryEntry *entry;
 
   uint16_t now_cluster_number = request.parent_cluster_number;
+  uint16_t prev_cluster_number;
   bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3) == 0;
   while (!end_of_directory && !found_directory)
   {
@@ -507,6 +511,9 @@ int8_t delete(struct FAT32DriverRequest request)
     // cluster of the directory
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF) == 0xFFFF;
 
+    // Take notes of the latest_cluster_number for the proper copying of directory table
+    prev_cluster_number = now_cluster_number;
+
     // If file is found, get out of the loop
     if (found_directory)
       continue;
@@ -526,6 +533,8 @@ int8_t delete(struct FAT32DriverRequest request)
   {
     return 1;
   }
+
+  request.parent_cluster_number = prev_cluster_number;
 
   // Found a matching directory entry, check if subdirectory empty or not
   if (is_subdirectory(entry))
