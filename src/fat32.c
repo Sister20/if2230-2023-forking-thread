@@ -417,16 +417,16 @@ int8_t delete(struct FAT32DriverRequest request)
 
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;
+  bool same_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
   for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
                       !found_directory;
        i++)
   {
     entry = &(driver_state.dir_table_buf.table[i]);
+    same_directory = is_subdirectory(entry) ? is_dir_name_same(entry, request) : is_dir_ext_name_same(entry, request);
     found_directory =
-        !is_entry_empty(entry) &&
-        (is_subdirectory(entry) ? is_dir_name_same(entry, request)
-                                : is_dir_ext_name_same(entry, request));
+        !is_entry_empty(entry) && same_directory;
   }
 
   // Failed to find any matching directory
@@ -665,7 +665,7 @@ void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table)
 
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir)
 {
-  return subdir->table[0].filesize >=
+  return subdir->table[0].n_of_entries >=
          (CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry));
 }
 
@@ -697,7 +697,7 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request)
 
 bool is_subdirectory_cluster_empty(struct FAT32DirectoryTable *subdir)
 {
-  return subdir->table[0].filesize == 1;
+  return subdir->table[0].n_of_entries == 1;
 };
 bool is_dirtable_child(struct FAT32DirectoryTable *subdir)
 {
