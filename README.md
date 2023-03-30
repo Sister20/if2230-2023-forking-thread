@@ -20,6 +20,6 @@ Membuat sistem operasi itu tidak mudah, dan kami punya sejuta terimakasih untuk 
 - [x] Entering Protected Mode 🛡️
 - [x] Interrupt :cloud_with_lightning:
 - [x] Keyboard Device Driver ⌨️
-- [ ] FAT32 Filesystem 🗄️
+- [x] FAT32 Filesystem 🗄️
 - [ ] And many more things beyond your imagination 🌈
 - [ ] Laporan 🤢 🤮
