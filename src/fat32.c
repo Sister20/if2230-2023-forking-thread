@@ -1,5 +1,4 @@
 #include "lib-header/fat32.h"
-#include "lib-header/framebuffer.h"
 #include "lib-header/stdmem.h"
 #include "lib-header/stdtype.h"
 
@@ -397,8 +396,6 @@ int8_t write(struct FAT32DriverRequest request) {
   // If there are no empty directories, create new cluster from the requested
   // parent cluster
   if (!found_empty_entry) {
-
-    framebuffer_write(0, 0, 'n', 0x7, 0x0);
     // Create the child cluster of the target directory. dir_table_buf will be
     // set into the table of the child cluster
     bool succesfully_created_child_cluster = create_child_cluster_of_subdir(
