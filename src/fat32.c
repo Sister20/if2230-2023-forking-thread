@@ -157,6 +157,7 @@ void init_directory_table(struct FAT32DirectoryTable *dir_table, char *name,
   dir_table->table[0].cluster_low = parent_dir_cluster & 0xFFFF;
   dir_table->table[0].filesize = CLUSTER_SIZE;
   dir_table->table[0].n_of_entries = 1;
+  dir_table->table[0].attribute = ATTR_SUBDIRECTORY;
 }
 
 void init_directory_table_child(struct FAT32DirectoryTable *dir_table,
@@ -307,13 +308,8 @@ int8_t write(struct FAT32DriverRequest request) {
 
   // If the given parent cluster number isn't the head of a directory, return
   // error
-  if (is_dirtable_child(&driver_state.dir_table_buf)) {
-    return 2;
-  }
 
-  if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
-      request.parent_cluster_number < ROOT_CLUSTER_NUMBER ||
-      !is_parent_cluster_valid(request))
+  if (!is_parent_cluster_valid(request))
     return 2;
 
   // Determine whether we're creating a file or a folder
@@ -731,7 +727,7 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request) {
     return TRUE;
   }
 
-  if (current_parent_table.table[0].attribute != ATTR_SUBDIRECTORY) {
+  if (is_dirtable_child(&driver_state.dir_table_buf) || current_parent_table.table[0].attribute != ATTR_SUBDIRECTORY) {
     return FALSE;
   }
 
@@ -744,8 +740,8 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request) {
   current_parent_table = driver_state.dir_table_buf;
 
   while (target_cluster_number < CLUSTER_MAP_SIZE &&
-         visited_parent[target_cluster_number] == 0 &&
-         target_cluster_number != ROOT_CLUSTER_NUMBER) {
+         target_cluster_number > ROOT_CLUSTER_NUMBER &&
+         visited_parent[target_cluster_number] == 0) {
     visited_parent[target_cluster_number] = 1;
     read_clusters(&current_parent_table, target_cluster_number, 1);
 
