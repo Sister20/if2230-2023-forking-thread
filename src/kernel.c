@@ -27,9 +27,9 @@ void kernel_setup(void) {
   struct FAT32DriverRequest request = {
       .buf = cbuf,
       .name = "ikanaide",
-      .ext = "exe",
-      .parent_cluster_number = ROOT_CLUSTER_NUMBER + 3,
-      .buffer_size = 0,
+      .ext = "\0\0\0",
+      .parent_cluster_number = ROOT_CLUSTER_NUMBER + 1,
+      .buffer_size = 5,
   };
 
   int temp = write(request); // Create folder

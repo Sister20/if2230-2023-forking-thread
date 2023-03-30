@@ -238,7 +238,7 @@ int8_t read(struct FAT32DriverRequest request) {
   read_clusters(&driver_state.fat_table, 1, 1);
 
   // If given parent cluster number isn't the head of a directory, return error
-  if (is_dirtable_child(&driver_state.dir_table_buf)) {
+  if (!is_parent_cluster_valid(request)) {
     return 4;
   }
 
@@ -434,7 +434,7 @@ int8_t delete(struct FAT32DriverRequest request) {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
   // If given parent cluster number isn't the head of a directory, return error
-  if (is_dirtable_child(&driver_state.dir_table_buf)) {
+  if (!is_parent_cluster_valid(request)) {
     return 4;
   }
 
