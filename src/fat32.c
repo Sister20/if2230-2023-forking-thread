@@ -386,9 +386,6 @@ int8_t write(struct FAT32DriverRequest request)
   bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
 
-  // framebuffer_write(10, 0, 'a' +
-  // driver_state.dir_table_buf.table->n_of_entries, 0x7, 0x0);
-
   while (!end_of_directory && !found_empty_entry)
   {
 
@@ -419,11 +416,6 @@ int8_t write(struct FAT32DriverRequest request)
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] &
                         0xFFFF) == 0xFFFF;
 
-    // if (driver_state.dir_table_buf.table->n_of_entries == 64 &&
-    // end_of_directory) framebuffer_write(1, 0, 'a', 0x7, 0x0); if
-    // (driver_state.dir_table_buf.table->n_of_entries == 1 && end_of_directory)
-    // framebuffer_write(1, 0, 'b', 0x7, 0x0);
-
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
     {
@@ -453,12 +445,10 @@ int8_t write(struct FAT32DriverRequest request)
     // Set the entry to be inserted into as the first element of table of the
     // newly created cluster
     entry = &(driver_state.dir_table_buf.table[1]);
-    // framebuffer_write(11, 0, 'M', 0x7, 0x0);
   }
 
   else
   {
-    // framebuffer_write(11, 0, 'a' + now_cluster_number, 0x7, 0x0);
     request.parent_cluster_number = now_cluster_number;
   }
 
@@ -488,7 +478,6 @@ int8_t delete(struct FAT32DriverRequest request)
 
   // Iterate through the directory entries and find the matching one
   bool found_directory = FALSE;
-  // bool same_directory = FALSE;
   bool end_of_directory = FALSE;
   struct FAT32DirectoryEntry *entry;
 
@@ -617,7 +606,6 @@ void create_subdirectory_from_entry(uint32_t cluster_number,
   entry->cluster_low = (uint16_t)cluster_number & 0x0000FFFF;
   entry->attribute = (uint8_t)ATTR_SUBDIRECTORY;
   entry->user_attribute = (uint8_t)UATTR_NOT_EMPTY;
-  // entry->n_of_occupied_cluster = (uint16_t)1;
   struct FAT32DirectoryTable new_directory;
   init_directory_table(&new_directory, req.name, req.parent_cluster_number);
 
@@ -673,7 +661,6 @@ void create_file_from_entry(uint32_t cluster_number,
 
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry)
 {
-  // framebuffer_write(0, 0, (char)(entry->cluster_low + 94), 0x7, 0x0);
   uint16_t now_cluster_number = entry->cluster_low;
   struct FAT32DirectoryTable subdir_table;
   bool found_filled = FALSE;
