@@ -27,14 +27,12 @@ void kernel_setup(void) {
   struct FAT32DriverRequest request = {
       .buf = cbuf,
       .name = "ikanaide",
-      .ext = "uwu",
+      .ext = "\0\0\0",
       .parent_cluster_number = ROOT_CLUSTER_NUMBER,
       .buffer_size = 0,
   };
 
-  memcpy(request.name, "IKAChild33\0\0\0", 8);
-  request.parent_cluster_number = ROOT_CLUSTER_NUMBER+1;
-  int temp = write(request); // Create folder "kano1"
+  int temp = delete(request); // Create folder
 
   if (temp == 0) {};
   // memcpy(request.name, "bruh", 8);

@@ -89,6 +89,7 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
 };
 
 static struct FAT32DriverState driver_state;
+static char empty_cluster_value[CLUSTER_SIZE];
 
 uint32_t cluster_to_lba(uint32_t cluster)
 {
@@ -128,6 +129,12 @@ void initialize_filesystem_fat32(void)
 
   // Move the FAT table from storage to the driver state
   read_clusters(&driver_state.fat_table, 1, 1);
+
+  // Initialize static array for empty clusters
+  for (int i = 0; i < CLUSTER_SIZE; i++)
+  {
+    empty_cluster_value[i] = 0;
+  }
 }
 
 bool is_empty_storage()
@@ -333,8 +340,9 @@ int8_t write(struct FAT32DriverRequest request)
     return 2;
   }
 
-  if (request.parent_cluster_number >= CLUSTER_MAP_SIZE ||
-      !is_parent_cluster_valid(request))
+  if (request.parent_cluster_number >= CLUSTER_MAP_SIZE 
+      || request.parent_cluster_number < ROOT_CLUSTER_NUMBER 
+      || !is_parent_cluster_valid(request))
     return 2;
 
   // Determine whether we're creating a file or a folder
@@ -693,6 +701,11 @@ bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry)
   return TRUE;
 };
 
+void reset_cluster(uint32_t cluster_number)
+{
+  write_clusters(empty_cluster_value, cluster_number, 1);
+}
+
 void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
                                   struct FAT32DriverRequest req)
 {
@@ -705,6 +718,7 @@ void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
         (uint16_t)(driver_state.fat_table.cluster_map[now_cluster_number] &
                    0xFFFF);
     driver_state.fat_table.cluster_map[now_cluster_number] = (uint32_t)0;
+    reset_cluster(now_cluster_number);
     now_cluster_number = next_cluster_number;
   } while (now_cluster_number != 0xFFFF);
 
@@ -733,6 +747,7 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
         (uint16_t)(driver_state.fat_table.cluster_map[now_cluster_number] &
                    0xFFFF);
     driver_state.fat_table.cluster_map[now_cluster_number] = (uint32_t)0;
+    reset_cluster(now_cluster_number);
     now_cluster_number = next_cluster_number;
   } while (now_cluster_number != 0xFFFF);
   memcpy(entry->name, "\0\0\0\0\0\0\0\0", 8);
@@ -791,7 +806,7 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request)
   struct FAT32DirectoryTable current_parent_table;
   read_clusters(&current_parent_table, request.parent_cluster_number, 1);
 
-  if (current_parent_table.table[0].attribute == ROOT_CLUSTER_NUMBER)
+  if (current_parent_table.table[0].cluster_low == ROOT_CLUSTER_NUMBER)
   {
     return TRUE;
   }

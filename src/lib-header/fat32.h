@@ -407,6 +407,13 @@ void create_file_from_entry(uint32_t cluster_number,
                             struct FAT32DriverRequest req);
 
 /**
+ * @brief Reset cluster_number values when deleted
+ *
+ * @param cluster_number The cluster number to delete
+ */
+void reset_cluster(uint32_t cluster_number);
+
+/**
  * @brief Delete a directory entry that is a folder
  *
  * @param entry The entry to delete
