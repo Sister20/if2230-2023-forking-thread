@@ -378,6 +378,7 @@ int8_t write(struct FAT32DriverRequest request)
 
   // Iterate through the directory entries and find empty entry
   bool found_empty_entry = FALSE;
+  bool cluster_full = FALSE;
   uint16_t now_cluster_number = request.parent_cluster_number;
   uint16_t prev_cluster_number;
   bool end_of_directory = FALSE;
@@ -387,8 +388,12 @@ int8_t write(struct FAT32DriverRequest request)
 
   while (!end_of_directory && !found_empty_entry)
   {
+
+    // Skip checking the cluster if it's known that it's full
+    cluster_full = is_subdirectory_cluster_full(&(driver_state.dir_table_buf));
+
     for (uint8_t i = 1; (i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry)) &&
-                        !found_empty_entry;
+                        !found_empty_entry && !cluster_full;
          i++)
     {
 
