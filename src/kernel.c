@@ -28,11 +28,11 @@ void kernel_setup(void) {
       .buf = cbuf,
       .name = "ikanaide",
       .ext = "\0\0\0",
-      .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+      .parent_cluster_number = ROOT_CLUSTER_NUMBER+2,
       .buffer_size = 0,
   };
 
-  int temp = delete(request); // Create folder
+  int temp = write(request); // Create folder
 
   if (temp == 0) {};
   // memcpy(request.name, "bruh", 8);

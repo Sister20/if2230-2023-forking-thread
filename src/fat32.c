@@ -881,12 +881,12 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req)
       // Check if it's similar
       if (is_creating_directory)
       {
-        same_entry = is_dir_name_same(entry, req) && is_subdirectory(entry);
+        same_entry = is_dir_name_same(entry, req);
       }
       else
       {
         same_entry =
-            is_dir_ext_name_same(entry, req) && !is_subdirectory(entry);
+            is_dir_ext_name_same(entry, req);
       }
 
       if (same_entry)
