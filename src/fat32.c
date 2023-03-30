@@ -774,7 +774,7 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
         driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF;
     nth_cluster++;
   } while (now_cluster_number != 0xFFFF);
-  set_access_date(entry);
+  set_access_datetime(entry);
 }
 
 void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table)
@@ -970,15 +970,15 @@ void set_create_datetime(struct FAT32DirectoryEntry *entry)
   entry->create_time = (FTTimestamp & 0x0000FFFF);
 }
 
-void set_modified_datetime(struct FAT32DirectoryEntry *entry)
+void set_modified_date(struct FAT32DirectoryEntry *entry)
 {
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->modified_date = ((FTTimestamp & 0xFFFF0000) >> 16);
-  entry->modified_time = (FTTimestamp & 0x0000FFFF);
 }
 
-void set_access_date(struct FAT32DirectoryEntry *entry)
+void set_access_datetime(struct FAT32DirectoryEntry *entry)
 {
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->access_date = ((FTTimestamp & 0xFFFF0000) >> 16);
+  entry->access_time = (FTTimestamp & 0x0000FFFF);
 }

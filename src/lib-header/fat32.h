@@ -93,7 +93,7 @@ struct FAT32DirectoryEntry
   uint16_t create_time;
   uint16_t create_date;
   uint16_t access_date;
-  uint16_t modified_time;
+  uint16_t access_time;
   uint16_t modified_date;
 
   uint16_t cluster_high;
@@ -346,19 +346,19 @@ bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint1
 /**
  * @brief Set the directory entry's create_date and create_time to current date and time
  * @param entry
-*/
+ */
 void set_create_datetime(struct FAT32DirectoryEntry *entry);
 
 /**
- * @brief Set the directory entry's modified_date and modified_time to current date and time
+ * @brief Set the directory entry's modified_date to current date
  * @param entry
-*/
-void set_modified_datetime(struct FAT32DirectoryEntry *entry);
+ */
+void set_modified_date(struct FAT32DirectoryEntry *entry);
 
 /**
- * @brief Set the directory entry's access_date to current date
+ * @brief Set the directory entry's access_date and access_time to current date and time
  * @param entry
-*/
-void set_access_date(struct FAT32DirectoryEntry *entry);
+ */
+void set_access_datetime(struct FAT32DirectoryEntry *entry);
 
 #endif
