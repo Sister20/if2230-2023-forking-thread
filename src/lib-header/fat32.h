@@ -71,13 +71,13 @@ struct FAT32FileAllocationTable
  * @param n_of_entries   The number of entries for the directory table
  * containing the entry. Only defined for the first entry in a table (at least
  * 1)
- * @param create_time    Unused / optional
- * @param create_date    Unused / optional
- * @param access_time    Unused / optional
- * @param cluster_high   Upper 16-bit of cluster number
- *
- * @param modified_time  Unused / optional
+ * @param create_time    The time (minute, hour) when a directory is created, in UTC
+ * @param create_date    The date when a directory is created, in UTC
+ * @param access_time    The time (minute, hour) when a directory is accessed, in UTC
+ * @param access_date    The date when a directory is accessed, in UTCs
  * @param modified_date  Unused / optional
+ *
+ * @param cluster_high   Upper 16-bit of cluster number
  * @param cluster_low    Lower 16-bit of cluster number
  * @param filesize       Filesize of this file, if this is directory / folder,
  * filesize is the number of cluster it occupies * cluster size
@@ -93,12 +93,11 @@ struct FAT32DirectoryEntry
   uint16_t create_time;
   uint16_t create_date;
   uint16_t access_date;
-  uint16_t modified_time;
+  uint16_t access_time;
   uint16_t modified_date;
 
   uint16_t cluster_high;
   uint16_t cluster_low;
-  // uint16_t n_of_occupied_cluster;
 
   uint32_t filesize;
 
@@ -272,44 +271,88 @@ int8_t write(struct FAT32DriverRequest request);
  */
 int8_t delete(struct FAT32DriverRequest request);
 
+/* -- Getter/Setter  Auxiliary Function -- */
+
+/**
+ * @brief Whether an entry is already occupied by a directory
+ *
+ * @param entry
+ * @return true entry is not occupied
+ * @return false entry is occupied
+ */
 bool is_entry_empty(struct FAT32DirectoryEntry *entry);
 
+/**
+ * @brief Whether name of directory in request is the same as name of directory in entry
+ *
+ * @param entry entry to be compared against req
+ * @param req request to be compared against entry
+ * @return true name is same
+ * @return false name is different
+ */
 bool is_dir_name_same(struct FAT32DirectoryEntry *entry,
                       struct FAT32DriverRequest req);
 
+/**
+ * @brief Whether extension of directory in request is the same as name of directory in entry
+ *
+ * @param entry entry to be compared against req
+ * @param req request to be compared against entry
+ * @return true extension is same
+ * @return false extension is different
+ */
 bool is_dir_ext_same(struct FAT32DirectoryEntry *entry,
                      struct FAT32DriverRequest req);
 
+/**
+ * @brief Whether extension and name of directory in request is the same as name of directory in entry
+ *
+ * @param entry entry to be compared against req
+ * @param req request to be compared against entry
+ * @return true extension and name is same
+ * @return false extension and name is different
+ */
 bool is_dir_ext_name_same(struct FAT32DirectoryEntry *entry,
                           struct FAT32DriverRequest req);
 
+/**
+ * @brief Check user_attribute of an entry
+ *
+ * @param entry
+ * @return true
+ * @return false
+ */
 bool is_subdirectory(struct FAT32DirectoryEntry *entry);
 
+/**
+ * @brief Ceiling of 2 a and b
+ *
+ * @param a
+ * @param b
+ * @return int ceiling of a/b
+ */
 int ceil(int a, int b);
-
-void create_subdirectory_from_entry(uint32_t cluster_number,
-                                    struct FAT32DirectoryEntry *entry,
-                                    struct FAT32DriverRequest req);
-
-void create_file_from_entry(uint32_t cluster_number,
-                            struct FAT32DirectoryEntry *entry,
-                            struct FAT32DriverRequest req);
 
 bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry);
 
-void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
-                                  struct FAT32DriverRequest req);
-
-void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
-                          struct FAT32DriverRequest req);
-
-void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
-                             struct FAT32DriverRequest req);
-
 bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry);
 
+/**
+ * @brief Whether a subdirectory table in a cluster is full
+ *
+ * @param subdir the directory table to be checked
+ * @return true table is full
+ * @return false table is not full
+ */
 bool is_subdirectory_cluster_full(struct FAT32DirectoryTable *subdir);
 
+/**
+ * @brief Whether a subdirectory table in a cluster is empty
+ *
+ * @param subdir the directory table to be checked
+ * @return true table is empty
+ * @return false table is not empty
+ */
 bool is_subdirectory_cluster_empty(struct FAT32DirectoryTable *subdir);
 
 /**
@@ -339,26 +382,86 @@ void decrement_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
 uint32_t get_subdir_n_of_entry(struct FAT32DirectoryTable *table);
 
+/* -- CRUD Auxiliary Function -- */
+
+/**
+ * @brief Create a folder into a directory entry
+ *
+ * @param cluster_number The cluster to which the folder is to be put
+ * @param entry The directory entry to be used by the folder
+ * @param req The request that contains information about folder creation
+ */
+void create_subdirectory_from_entry(uint32_t cluster_number,
+                                    struct FAT32DirectoryEntry *entry,
+                                    struct FAT32DriverRequest req);
+
+/**
+ * @brief Create a file into a directory entry
+ *
+ * @param cluster_number The cluster to which the file is to be put
+ * @param entry The directory entry to be used by the file
+ * @param req The request that contains information about file creation
+ */
+void create_file_from_entry(uint32_t cluster_number,
+                            struct FAT32DirectoryEntry *entry,
+                            struct FAT32DriverRequest req);
+
+/**
+ * @brief Delete a directory entry that is a folder
+ *
+ * @param entry The entry to delete
+ * @param req The request that contains information about deletion
+ */
+void delete_subdirectory_by_entry(struct FAT32DirectoryEntry *entry,
+                                  struct FAT32DriverRequest req);
+
+/**
+ * @brief Delete a directory entry that is a file
+ *
+ * @param entry The entry to delete
+ * @param req The request that contains information about deletion
+ */
+void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
+                          struct FAT32DriverRequest req);
+
+/**
+ * @brief Read a directory entry
+ *
+ * @param entry The entry to read
+ * @param req The request to which read result is to be transferred
+ */
+void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
+                             struct FAT32DriverRequest req);
+
+/**
+ * @brief Create a child cluster of a subdirectory
+ *
+ * @param last_occupied_cluster_number The last cluster number in the FAT table that is to-be occupied
+ * @param prev_cluster_number The cluster number where the last cluster used by the directory is
+ * @param req Request that is used by the caller
+ * @return true Creating child cluster succesful
+ * @return false Creating child cluster not succesful
+ */
 bool create_child_cluster_of_subdir(uint32_t last_occupied_cluster_number, uint16_t prev_cluster_number, struct FAT32DriverRequest *req);
 
-/*** Timestamp management ***/
+/* -- Timestamp Management -- */
 
 /**
  * @brief Set the directory entry's create_date and create_time to current date and time
  * @param entry
-*/
+ */
 void set_create_datetime(struct FAT32DirectoryEntry *entry);
 
 /**
- * @brief Set the directory entry's modified_date and modified_time to current date and time
+ * @brief Set the directory entry's modified_date to current date
  * @param entry
-*/
-void set_modified_datetime(struct FAT32DirectoryEntry *entry);
+ */
+void set_modified_date(struct FAT32DirectoryEntry *entry);
 
 /**
- * @brief Set the directory entry's access_date to current date
+ * @brief Set the directory entry's access_date and access_time to current date and time
  * @param entry
-*/
-void set_access_date(struct FAT32DirectoryEntry *entry);
+ */
+void set_access_datetime(struct FAT32DirectoryEntry *entry);
 
 #endif
