@@ -17,8 +17,14 @@ AFLAGS        = -f elf32 -g -F dwarf
 LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
 
+# Filesystem
+DISK_NAME      = storage
+
 run: all
-	@qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+	@qemu-system-i386 -s -drive file=$(OUTPUT_FOLDER)/$(DISK_NAME).bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+
+disk+run: disk run
+
 all: build
 build: iso
 clean:
@@ -35,6 +41,9 @@ kernel:
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/interrupt.c -o $(OUTPUT_FOLDER)/interrupt.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/keyboard.c -o $(OUTPUT_FOLDER)/keyboard.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
+	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/fat32.c -o $(OUTPUT_FOLDER)/fat32.o
+	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/disk.c -o $(OUTPUT_FOLDER)/disk.o
+	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/cmosrtc.c -o $(OUTPUT_FOLDER)/cmosrtc.o
 	@$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generate elf32...
 	@rm -f *.o
@@ -52,7 +61,10 @@ iso: kernel
 	-input-charset utf8        			\
 	-quiet                     			\
 	-boot-info-table           			\
-	-o $(OUTPUT_FOLDER)/OS2023.iso      \
+	-o $(OUTPUT_FOLDER)/$(ISO_NAME).iso \
 	$(OUTPUT_FOLDER)/iso
 	@rm -r $(OUTPUT_FOLDER)/iso/
 	@rm $(OUTPUT_FOLDER)/*.o
+
+disk:
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
