@@ -791,8 +791,12 @@ bool is_parent_cluster_valid(struct FAT32DriverRequest request)
   struct FAT32DirectoryTable current_parent_table;
   read_clusters(&current_parent_table, request.parent_cluster_number, 1);
 
-  if (current_parent_table.table[0].attribute != ATTR_SUBDIRECTORY &&
-      request.parent_cluster_number != ROOT_CLUSTER_NUMBER)
+  if (current_parent_table.table[0].attribute == ROOT_CLUSTER_NUMBER)
+  {
+    return TRUE;
+  }
+  
+  if (current_parent_table.table[0].attribute != ATTR_SUBDIRECTORY)
   {
     return FALSE;
   }
