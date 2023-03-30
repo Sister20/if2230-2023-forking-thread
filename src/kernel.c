@@ -69,7 +69,7 @@ void kernel_setup(void)
         if (ret != 0)
         {
             // once_failed_to_write = TRUE;
-            framebuffer_write(4, 0, 'F', 0x7, 0x0);
+            framebuffer_write(0, 0, 'F', 0x7, 0x0);
             framebuffer_write(1, 0, i + 33, 0x7, 0x0);
             framebuffer_write(3, 0, ret + 97, 0x7, 0x0);
             break;
