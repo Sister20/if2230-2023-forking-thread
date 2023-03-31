@@ -21,5 +21,8 @@ Membuat sistem operasi itu tidak mudah, dan kami punya sejuta terimakasih untuk 
 - [x] Interrupt :cloud_with_lightning:
 - [x] Keyboard Device Driver ⌨️
 - [x] FAT32 Filesystem 🗄️
+- [ ] Paging
+- [ ] User Mode
+- [ ] Shell
 - [ ] And many more things beyond your imagination 🌈
 - [ ] Laporan 🤢 🤮
