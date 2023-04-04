@@ -10,10 +10,17 @@
 extern struct PageDirectory _paging_kernel_page_directory;
 
 /**
- * Page Directory Entry Flag, only first 8 bit
+ * @brief Page Directory Entry Flag, only first 8 bit
  *
- * @param present_bit       Indicate whether this entry is exist or not
- * ...
+ * @param present_bit       Indicate whether this entry exist or not
+ * @param write_bit
+ * @param us_bit
+ * @param page_level_write_through_bit
+ * @param page_level_cache_disable_bit
+ * @param accessed_bit
+ * @param dirty_bit
+ * @param use_pagesize_4_mb
+ *
  */
 struct PageDirectoryEntryFlag
 {
@@ -25,17 +32,19 @@ struct PageDirectoryEntryFlag
     unsigned int accessed_bit : 1;
     unsigned int dirty_bit : 1;
     unsigned int use_pagesize_4_mb : 1;
-
-    // TODO : Continue. Note: Only first 8 bit flags
 } __attribute__((packed));
 
 /**
- * Page Directory Entry, for page size 4 MB.
+ * @brief Page Directory Entry, for page size 4 MB.
  * Check Intel Manual 3a - Ch 4 Paging - Figure 4-4 PDE: 4MB page
  *
  * @param flag            Contain 8-bit page directory entry flag
  * @param global_page     Is this page translation global (also cannot be flushed)
- * ...
+ * @param ignored     Is this page translation global (also cannot be flushed)
+ * @param pat_bit     Is this page translation global (also cannot be flushed)
+ * @param higher_address     Is this page translation global (also cannot be flushed)
+ * @param reserved     Is this page translation global (also cannot be flushed)
+ * @param lower_address     Is this page translation global (also cannot be flushed)
  */
 struct PageDirectoryEntry
 {
@@ -43,10 +52,9 @@ struct PageDirectoryEntry
     unsigned int global_page : 1;
     unsigned int ignored : 3;
     unsigned int pat_bit : 1;
-
-    uint16_t lower_address;
-
-    // TODO : Continue, Use uint16_t + bitfield here, Do not use uint8_t
+    unsigned int higher_address : 8;
+    unsigned int reserved : 2;
+    unsigned int lower_address : 10;
 } __attribute__((packed));
 
 /**
