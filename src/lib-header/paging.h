@@ -17,7 +17,15 @@ extern struct PageDirectory _paging_kernel_page_directory;
  */
 struct PageDirectoryEntryFlag
 {
-    uint8_t present_bit : 1;
+    unsigned int present_bit : 1;
+    unsigned int write_bit : 1;
+    unsigned int us_bit : 1;
+    unsigned int page_level_write_through_bit : 1;
+    unsigned int page_level_cache_disable_bit : 1;
+    unsigned int accessed_bit : 1;
+    unsigned int dirty_bit : 1;
+    unsigned int use_pagesize_4_mb : 1;
+
     // TODO : Continue. Note: Only first 8 bit flags
 } __attribute__((packed));
 
@@ -32,7 +40,12 @@ struct PageDirectoryEntryFlag
 struct PageDirectoryEntry
 {
     struct PageDirectoryEntryFlag flag;
-    uint16_t global_page : 1;
+    unsigned int global_page : 1;
+    unsigned int ignored : 3;
+    unsigned int pat_bit : 1;
+
+    uint16_t lower_address;
+
     // TODO : Continue, Use uint16_t + bitfield here, Do not use uint8_t
 } __attribute__((packed));
 
@@ -47,8 +60,8 @@ struct PageDirectoryEntry
  */
 struct PageDirectory
 {
-    // TODO : Implement
-} __attribute__((packed));
+    struct PageDirectoryEntry table[PAGE_ENTRY_COUNT]
+} __attribute__((aligned(0x1000)));
 
 /**
  * Containing page driver states
