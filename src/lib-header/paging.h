@@ -40,11 +40,11 @@ struct PageDirectoryEntryFlag
  *
  * @param flag            Contain 8-bit page directory entry flag
  * @param global_page     Is this page translation global (also cannot be flushed)
- * @param ignored     Is this page translation global (also cannot be flushed)
- * @param pat_bit     Is this page translation global (also cannot be flushed)
- * @param higher_address     Is this page translation global (also cannot be flushed)
- * @param reserved     Is this page translation global (also cannot be flushed)
- * @param lower_address     Is this page translation global (also cannot be flushed)
+ * @param ignored
+ * @param pat_bit       reserved in this case
+ * @param higher_address
+ * @param reserved     must be 1
+ * @param lower_address
  */
 struct PageDirectoryEntry
 {
@@ -53,7 +53,7 @@ struct PageDirectoryEntry
     unsigned int ignored : 3;
     unsigned int pat_bit : 1;
     unsigned int higher_address : 8;
-    unsigned int reserved : 2;
+    unsigned int reserved : 1;
     unsigned int lower_address : 10;
 } __attribute__((packed));
 
@@ -82,14 +82,14 @@ struct PageDriverState
 } __attribute__((packed));
 
 /**
- * update_page_directory,
+ * update_page_directory_entry,
  * Edit _paging_kernel_page_directory with respective parameter
  *
  * @param physical_addr Physical address to map
  * @param virtual_addr  Virtual address to map
  * @param flag          Page entry flags
  */
-void update_page_directory(void *physical_addr, void *virtual_addr, struct PageDirectoryEntryFlag flag);
+void update_page_directory_entry(void *physical_addr, void *virtual_addr, struct PageDirectoryEntryFlag flag);
 
 /**
  * flush_single_tlb,
