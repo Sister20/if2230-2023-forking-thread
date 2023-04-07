@@ -43,7 +43,9 @@ int8_t allocate_single_user_page_frame(void *virtual_addr)
     flag.use_pagesize_4_mb = 1;
 
     // Allocate PDE
-    update_page_directory_entry(last_physical_addr, virtual_addr, flag);
+    update_page_directory_entry((void *)last_physical_addr, virtual_addr, flag);
+    return 0;
+
     // TODO : Allocate Page Directory Entry with user privilege
     return -1;
 }
