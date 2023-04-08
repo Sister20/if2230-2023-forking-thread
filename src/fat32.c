@@ -414,7 +414,7 @@ int8_t write(struct FAT32DriverRequest request) {
     request.parent_cluster_number = now_cluster_number;
   }
 
-  set_create_datetime(entry);
+  //set_create_datetime(entry);
 
   // Create a directory
   if (is_creating_directory) {
@@ -695,7 +695,7 @@ void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
         driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF;
     nth_cluster++;
   } while (now_cluster_number != 0xFFFF);
-  set_access_datetime(entry);
+  //set_access_datetime(entry);
 }
 
 void increment_subdir_n_of_entry(struct FAT32DirectoryTable *table) {

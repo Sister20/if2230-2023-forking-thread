@@ -62,6 +62,8 @@ void activate_keyboard_interrupt(void) {
     out(PIC2_DATA, PIC_DISABLE_ALL_MASK);
 }
 
+static struct _interrupt_tss_entry;
+
 void set_tss_kernel_current_stack(void) {
     uint32_t stack_ptr;
     // Reading base stack frame instead esp
