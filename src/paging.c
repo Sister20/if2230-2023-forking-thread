@@ -36,6 +36,9 @@ int8_t allocate_single_user_page_frame(void *virtual_addr)
 
     // Initialize flag
     struct PageDirectoryEntryFlag flag;
+    flag.accessed_bit = 0;
+    flag.page_level_cache_disable_bit = 0;
+    flag.page_level_write_through_bit = 0;
     flag.dirty_bit = 0;
     flag.us_bit = 1;
     flag.present_bit = 1;
@@ -45,9 +48,6 @@ int8_t allocate_single_user_page_frame(void *virtual_addr)
     // Allocate PDE
     update_page_directory_entry((void *)last_physical_addr, virtual_addr, flag);
     return 0;
-
-    // TODO : Allocate Page Directory Entry with user privilege
-    return -1;
 }
 
 void flush_single_tlb(void *virtual_addr)

@@ -113,8 +113,6 @@ struct GDTR _gdt_gdtr = {
     .address = &global_descriptor_table
 };
 
-struct TSSEntry _interrupt_tss_entry;
-
 void gdt_install_tss(void) {
     uint32_t base = (uint32_t) &_interrupt_tss_entry;
     global_descriptor_table.table[5].base_high = (base & (0xFF << 24)) >> 24;

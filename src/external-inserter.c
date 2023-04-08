@@ -58,8 +58,9 @@ int main(int argc, char *argv[]) {
     // Read target file, assuming file is less than 4 MiB
     FILE *fptr_target = fopen(argv[1], "r");
     size_t filesize   = 0;
-    if (fptr_target == NULL)
+    if (fptr_target == NULL){
         filesize = 0;
+    }
     else {
         fread(file_buffer, 4*1024*1024, 1, fptr_target);
         fseek(fptr_target, 0, SEEK_END);

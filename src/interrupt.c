@@ -51,6 +51,8 @@ void main_interrupt_handler(
     __attribute__((unused)) struct InterruptStack info
 ) {
     switch (int_number) {
+        case 0xE:
+            break;
         case 0x21:
             keyboard_isr();
             break;
@@ -69,3 +71,5 @@ void set_tss_kernel_current_stack(void) {
     // Add 8 because 4 for ret address and other 4 is for stack_ptr variable
     _interrupt_tss_entry.esp0 = stack_ptr + 8; 
 }
+
+struct TSSEntry _interrupt_tss_entry;
