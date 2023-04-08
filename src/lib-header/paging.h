@@ -10,10 +10,17 @@
 extern struct PageDirectory _paging_kernel_page_directory;
 
 /**
- * Page Directory Entry Flag, only first 8 bit
+ * @brief Page Directory Entry Flag, only first 8 bit
  *
- * @param present_bit       Indicate whether this entry is exist or not
- * ...
+ * @param present_bit       Indicate whether this entry exist or not
+ * @param write_bit
+ * @param us_bit
+ * @param page_level_write_through_bit
+ * @param page_level_cache_disable_bit
+ * @param accessed_bit
+ * @param dirty_bit
+ * @param use_pagesize_4_mb
+ *
  */
 struct PageDirectoryEntryFlag
 {
@@ -25,17 +32,19 @@ struct PageDirectoryEntryFlag
     unsigned int accessed_bit : 1;
     unsigned int dirty_bit : 1;
     unsigned int use_pagesize_4_mb : 1;
-
-    // TODO : Continue. Note: Only first 8 bit flags
 } __attribute__((packed));
 
 /**
- * Page Directory Entry, for page size 4 MB.
+ * @brief Page Directory Entry, for page size 4 MB.
  * Check Intel Manual 3a - Ch 4 Paging - Figure 4-4 PDE: 4MB page
  *
  * @param flag            Contain 8-bit page directory entry flag
  * @param global_page     Is this page translation global (also cannot be flushed)
- * ...
+ * @param ignored
+ * @param pat_bit       reserved in this case
+ * @param higher_address
+ * @param reserved     must be 1
+ * @param lower_address
  */
 struct PageDirectoryEntry
 {
@@ -43,10 +52,9 @@ struct PageDirectoryEntry
     unsigned int global_page : 1;
     unsigned int ignored : 3;
     unsigned int pat_bit : 1;
-
-    uint16_t lower_address;
-
-    // TODO : Continue, Use uint16_t + bitfield here, Do not use uint8_t
+    unsigned int higher_address : 8;
+    unsigned int reserved : 1;
+    unsigned int lower_address : 10;
 } __attribute__((packed));
 
 /**
@@ -60,7 +68,7 @@ struct PageDirectoryEntry
  */
 struct PageDirectory
 {
-    struct PageDirectoryEntry table[PAGE_ENTRY_COUNT]
+    struct PageDirectoryEntry table[PAGE_ENTRY_COUNT];
 } __attribute__((aligned(0x1000)));
 
 /**
@@ -74,14 +82,14 @@ struct PageDriverState
 } __attribute__((packed));
 
 /**
- * update_page_directory,
+ * update_page_directory_entry,
  * Edit _paging_kernel_page_directory with respective parameter
  *
  * @param physical_addr Physical address to map
  * @param virtual_addr  Virtual address to map
  * @param flag          Page entry flags
  */
-void update_page_directory(void *physical_addr, void *virtual_addr, struct PageDirectoryEntryFlag flag);
+void update_page_directory_entry(void *physical_addr, void *virtual_addr, struct PageDirectoryEntryFlag flag);
 
 /**
  * flush_single_tlb,
