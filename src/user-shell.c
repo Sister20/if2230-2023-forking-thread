@@ -54,6 +54,7 @@ void get_buffer_indexes(char* buf, struct IndexInfo* indexes, char delimiter, in
 
     // contoh penggunaan:
     // buf = " 12 45 79    \0"
+    // diperoleh indexes = [[1, 2], [4, 2], [7, 2]] untuk array di dalam dalam format [indeks, length]
 
     int i = starting_index;
     int limit = i + buffer_length;
