@@ -76,6 +76,11 @@ void main_interrupt_handler(struct CPURegister cpu, uint32_t int_number, struct 
     }
 }
 
+void puts(char* buf, uint32_t length, uint8_t color)
+{
+
+}
+
 void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptStack info) {
 
     // read 
@@ -94,7 +99,8 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
     } 
     
     else if (cpu.eax == 5) {
-        puts((char *) cpu.ebx, cpu.ecx, cpu.edx); // belum diimplementasi
+        framebuffer_write_row(0, 0, "bruh", cpu.ecx, 0);
+        // puts((char *) cpu.ebx, cpu.ecx, cpu.edx); // belum diimplementasi
     } 
     
     // read parent directory table only with its cluster number

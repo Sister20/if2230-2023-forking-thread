@@ -177,7 +177,7 @@ int8_t read_directory(struct FAT32DriverRequest request) {
     }
 
     // Enough size, read the cluster to the buffer
-    read_directory_by_entry(ROOT_CLUSTER_NUMBER, request);
+    read_directory_by_cluster_number(ROOT_CLUSTER_NUMBER, request);
     return 0;
   }
 
@@ -433,7 +433,7 @@ int8_t write(struct FAT32DriverRequest request) {
   if (is_creating_directory) {
 
     if (memcmp("root\0\0\0\0", request.name, 8) == 0) return 3;
-    
+
     create_subdirectory_from_entry(new_cluster_number, entry, request);
     return 0;
   }

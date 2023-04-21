@@ -1,6 +1,7 @@
 #include "lib-header/stdtype.h"
 #include "lib-header/fat32.h"
 #include "lib-header/stdmem.h"
+#include "lib-header/framebuffer.h"
 
 #define SHELL_BUFFER_SIZE     256
 #define COMMAND_MAX_SIZE      32
@@ -51,6 +52,13 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
     __asm__ volatile("int $0x30");
 }
 
+void reset_indexes(struct IndexInfo* indexes)
+{
+    for (int i = 0; i < INDEXES_MAX_COUNT; i++) {
+        indexes[i] = defaultIndexInfo;
+    }
+}
+
 void get_buffer_indexes(char* buf, struct IndexInfo* indexes, char delimiter, int starting_index, int buffer_length) {
 
     // contoh penggunaan:
@@ -91,13 +99,6 @@ int get_command_number(char* buf, int starting_index, int command_length) {
     }
 
     return -1;
-}
-
-void reset_indexes(struct IndexInfo* indexes)
-{
-    for (int i = 0; i < INDEXES_MAX_COUNT; i++) {
-        indexes[i] = defaultIndexInfo;
-    }
 }
 
 bool is_default_index(struct IndexInfo index_info)
@@ -191,7 +192,7 @@ void cd_command(char* buf, struct IndexInfo* indexes, struct CurrentDirectoryInf
             syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
 
             dir_table = request.buf; 
-            int j = 0;
+            uint32_t j = 0;
             bool found = FALSE;
 
             while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
@@ -228,21 +229,21 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest request = {
         .buf                   = &cl,
-        .name                  = info.paths[current_cluster_number-1],
         .ext                   = "\0\0\0",
         .parent_cluster_number = info.current_cluster_number,
         .buffer_size           = CLUSTER_SIZE * 5,
     };
+
+    memcpy(request.name, info.paths[current_cluster_number-1], DIRECTORY_NAME_LENGTH);
 
     int32_t retcode;
 
     syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
 
     if (retcode == 0) {
-        struct FAT32DirectoryTable dirTable[5] =  request.buf;
+        struct FAT32DirectoryTable* dirTable =  request.buf;
 
         int i = 0;
-        int entry_count = 0;
         int dir_table_count = dirTable->table->filesize / CLUSTER_SIZE;
 
         while (i < dir_table_count)
@@ -262,10 +263,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
 int main(void) {
 
     char buf[SHELL_BUFFER_SIZE];
-    int word_indexes[INDEXES_MAX_COUNT];
-    // char paths[PATH_MAX_COUNT][8];
-    // int current_path_count = 0;
-    // uint16_t parent_cluster_number = ROOT_CLUSTER_NUMBER;
+    struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
 
     struct CurrentDirectoryInfo current_directory_info =
     {
@@ -278,7 +276,9 @@ int main(void) {
     while (TRUE) {
 
         reset_indexes(word_indexes);
+        if (current_directory_info.current_cluster_number) {
 
+        }
         syscall(4, (uint32_t) buf, SHELL_BUFFER_SIZE, 0);
         syscall(5, (uint32_t) buf, SHELL_BUFFER_SIZE, 0xF); // syscall ini belum implement fungsi put
     }
