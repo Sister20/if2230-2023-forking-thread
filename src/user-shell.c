@@ -6,7 +6,7 @@
 #define COMMAND_MAX_SIZE      32
 #define COMMAND_COUNT         12
 #define DIRECTORY_NAME_LENGTH 8
-#define INDEXES_MAX_COUNT     SHELL_BUFFER_SIZE+1
+#define INDEXES_MAX_COUNT     SHELL_BUFFER_SIZE
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -30,6 +30,16 @@ struct CurrentDirectoryInfo
 
 } __attribute__((packed));
 
+struct IndexInfo {
+    int index;
+    int length;
+} __attribute__((packed));
+
+struct IndexInfo defaultIndexInfo = {
+    .index = -1,
+    .length = 0,
+};
+
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
     __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
     __asm__ volatile("mov %0, %%ecx" : /* <Empty> */ : "r"(ecx));
@@ -40,36 +50,36 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx) {
     __asm__ volatile("int $0x30");
 }
 
-void get_buffer_indexes(char* buf, int* indexes, char delimiter, int starting_index, int buffer_length) {
+void get_buffer_indexes(char* buf, struct IndexInfo* indexes, char delimiter, int starting_index, int buffer_length) {
+
+    // contoh penggunaan:
+    // buf = " 12 45 79    \0"
 
     int i = starting_index;
     int limit = i + buffer_length;
     int count = 0;
-    bool stop = FALSE;
-    while (i < limit && !stop)
+    
+    reset_indexes(indexes);
+
+    while (i < limit && buf[i] != '\0')
     {
-        while(i < limit && buf[i] == delimiter) i++;
+        while(i < limit && buf[i] == delimiter && buf[i] != '\0') i++;
 
-        if (i < limit)
-        {
-            indexes[count] = i;
-            count++;
+        if (i >= limit || buf[i] == '\0') break;
 
-            if (buf[i] == '\0')
-            {
-                stop = TRUE;
-            }
-        }
+        indexes[count].index = i;
 
-        while(i < limit && buf[i] != delimiter) i++;
+        while(i < limit && buf[i] != delimiter && buf[i] != '\0') i++;
+
+        indexes[count].length = (i - indexes[count].index);
+
+        count++;
     }
-
-    indexes[count] = limit;
 }
 
-int get_command_index(char* buf, int starting_index, int command_length) {
+int get_command_number(char* buf, int starting_index, int command_length) {
     // return -1 if command not found
-    // return command_list index if found
+    // return command_list number if found
 
     if (command_length > COMMAND_MAX_SIZE) return -1;
 
@@ -81,16 +91,24 @@ int get_command_index(char* buf, int starting_index, int command_length) {
     return -1;
 }
 
-void reset_indexes(int* indexes)
+void reset_indexes(struct IndexInfo* indexes)
 {
-    for (int i = 0; i < INDEXES_MAX_COUNT; i++) indexes[i] = -1;
+    for (int i = 0; i < INDEXES_MAX_COUNT; i++) {
+        indexes[i] = defaultIndexInfo;
+    }
 }
 
-int get_words_count(int* indexes)
+bool is_default_index(struct IndexInfo index_info)
 {
-    int i = 0;
-    while (i < INDEXES_MAX_COUNT && indexes[i] != -1) i++;
-    return i-1;
+    return index_info.index == -1 && index_info.length == 0;
+}
+
+int get_words_count(struct IndexInfo* indexes)
+{
+    int count = 0;
+    while (count < INDEXES_MAX_COUNT && !is_default_index(indexes[count])) count++;
+
+    return count;
 }
 
 bool is_back_path(int* buf, int starting_index, int length)
@@ -103,36 +121,30 @@ bool is_back_path(int* buf, int starting_index, int length)
     return TRUE;
 }
 
-
-void cd_command(char* buf, int* indexes, struct CurrentDirectoryInfo* info)
+void cd_command(char* buf, struct IndexInfo* indexes, struct CurrentDirectoryInfo* info)
 {
     if (get_words_count(indexes) != 2)
     {
         // tulis parameter cd tidak valid
         return;
     }
-    int index = indexes[1];
-    int length = indexes[2] - indexes[1];
-
-    int param_indexes[INDEXES_MAX_COUNT];
+    
+    struct IndexInfo param_indexes[INDEXES_MAX_COUNT];
     reset_indexes(param_indexes);
 
-    get_buffer_indexes(buf, param_indexes, '/', index, length);
+    get_buffer_indexes(buf, param_indexes, '/', indexes[1].index, indexes[1].length);
 
     int i = 0;
 
-    while(i < INDEXES_MAX_COUNT-1 && param_indexes[i+1] != -1)
+    while(i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
     {
-        int param_index = param_indexes[i];
-        int param_length = param_indexes[i+1] - param_indexes[i];
-        i++;
 
-        if (param_length == 1 && buf[param_index] == '.')
+        if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
         {
             continue;
         }
 
-        else if (is_back_path(buf, param_index, param_length))
+        else if (is_back_path(buf, param_indexes[i].index, param_indexes[i].length))
         {
             // TODO :go to parent dir
         }
@@ -141,6 +153,8 @@ void cd_command(char* buf, int* indexes, struct CurrentDirectoryInfo* info)
         {
             // TODO :go to target dir
         }
+
+        i++;
     }
 }
 
