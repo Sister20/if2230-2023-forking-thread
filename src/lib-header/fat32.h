@@ -258,7 +258,7 @@ int8_t read(struct FAT32DriverRequest request);
  * @param request All attribute will be used for write, buffer_size == 0 then
  * create a folder / directory
  * @return Error code: 0 success - 1 file/folder already exist - 2 invalid
- * parent cluster - -1 unknown
+ * parent cluster - 3 forbidden name - -1 unknown
  */
 int8_t write(struct FAT32DriverRequest request);
 
@@ -439,6 +439,15 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
  * @param req The request to which read result is to be transferred
  */
 void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
+                             struct FAT32DriverRequest req);
+
+/**
+ * @brief Read a directory
+ *
+ * @param cluster_number The intial cluster_number of directory
+ * @param req The request to which read result is to be transferred
+ */
+void read_directory_by_cluster_number(uint16_t cluster_number,
                              struct FAT32DriverRequest req);
 
 /**

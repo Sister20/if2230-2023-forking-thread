@@ -166,7 +166,20 @@ void init_directory_table_child(struct FAT32DirectoryTable *dir_table,
 }
 
 int8_t read_directory(struct FAT32DriverRequest request) {
+
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+
+  if (request.parent_cluster_number == ROOT_CLUSTER_NUMBER && memcmp("root\0\0\0\0", request.name, 8) == 0)
+  {
+    // Return error when the buffer size is insufficient
+    if (request.buffer_size < driver_state.dir_table_buf.table->filesize) {
+      return -1;
+    }
+
+    // Enough size, read the cluster to the buffer
+    read_directory_by_entry(ROOT_CLUSTER_NUMBER, request);
+    return 0;
+  }
 
   // If given parent cluster number isn't the head of a directory, return error
   if (is_dirtable_child(&driver_state.dir_table_buf)) {
@@ -418,6 +431,9 @@ int8_t write(struct FAT32DriverRequest request) {
 
   // Create a directory
   if (is_creating_directory) {
+
+    if (memcmp("root\0\0\0\0", request.name, 8) == 0) return 3;
+    
     create_subdirectory_from_entry(new_cluster_number, entry, request);
     return 0;
   }
@@ -688,6 +704,19 @@ void delete_file_by_entry(struct FAT32DirectoryEntry *entry,
 void read_directory_by_entry(struct FAT32DirectoryEntry *entry,
                              struct FAT32DriverRequest req) {
   uint16_t now_cluster_number = entry->cluster_low;
+  uint8_t nth_cluster = 0;
+  do {
+    read_clusters(req.buf + CLUSTER_SIZE * nth_cluster, now_cluster_number, 1);
+    now_cluster_number =
+        driver_state.fat_table.cluster_map[now_cluster_number] & 0x0000FFFF;
+    nth_cluster++;
+  } while (now_cluster_number != 0xFFFF);
+  //set_access_datetime(entry);
+}
+
+void read_directory_by_cluster_number(uint16_t cluster_number,
+                             struct FAT32DriverRequest req) {
+  uint16_t now_cluster_number = cluster_number;
   uint8_t nth_cluster = 0;
   do {
     read_clusters(req.buf + CLUSTER_SIZE * nth_cluster, now_cluster_number, 1);

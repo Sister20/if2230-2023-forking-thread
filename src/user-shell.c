@@ -7,6 +7,7 @@
 #define COMMAND_COUNT         12
 #define DIRECTORY_NAME_LENGTH 8
 #define INDEXES_MAX_COUNT     SHELL_BUFFER_SIZE
+#define PATH_MAX_COUNT        256
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -24,10 +25,10 @@ const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
 
 struct CurrentDirectoryInfo
 {
-    uint16_t parent_cluster_number;
+    char paths[PATH_MAX_COUNT][DIRECTORY_NAME_LENGTH];
+    uint32_t current_path_count;
     uint16_t current_cluster_number;
-    char current_directory_name[8];
-
+    // char current_directory_name[8];
 } __attribute__((packed));
 
 struct IndexInfo {
@@ -112,16 +113,6 @@ int get_words_count(struct IndexInfo* indexes)
     return count;
 }
 
-bool is_back_path(int* buf, int starting_index, int length)
-{
-    for (int i = starting_index; i < starting_index+length; i++)
-    {
-        if (buf[i] != '.') return FALSE;
-    }
-
-    return TRUE;
-}
-
 void cd_command(char* buf, struct IndexInfo* indexes, struct CurrentDirectoryInfo* info)
 {
     if (get_words_count(indexes) != 2)
@@ -137,22 +128,95 @@ void cd_command(char* buf, struct IndexInfo* indexes, struct CurrentDirectoryInf
 
     int i = 0;
 
+    if (buf[indexes[1].index] == '/') 
+    {
+        info->current_cluster_number = ROOT_CLUSTER_NUMBER;
+        info->current_path_count = 0;
+    }
+
     while(i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
     {
 
         if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
         {
+            i++;
             continue;
         }
 
-        else if (is_back_path(buf, param_indexes[i].index, param_indexes[i].length))
+        else if (param_indexes[i].length == 2 && memcmp(buf+param_indexes[i].index, "..", 2) == 0)
         {
             // TODO :go to parent dir
+
+            if (info->current_cluster_number != ROOT_CLUSTER_NUMBER)
+            {
+                struct ClusterBuffer cl = {0};
+                struct FAT32DriverRequest request = {
+                    .buf                   = &cl,
+                    .name                  = "\0\0\0\0\0\0\0\0",
+                    .ext                   = "\0\0\0",
+                    .parent_cluster_number = info->current_cluster_number,
+                    .buffer_size           = CLUSTER_SIZE * 5,
+                };
+
+                syscall(6, (uint32_t) &request, 0, 0);
+
+                struct FAT32DirectoryTable* dir_table = request.buf; 
+
+                info->current_cluster_number = dir_table->table->cluster_low;
+                info->current_path_count--;
+            }
         }
 
         else
         {
-            // TODO :go to target dir
+            struct ClusterBuffer cl[5];
+
+            struct FAT32DriverRequest request = {
+                .buf                   = &cl,
+                .name                  = "\0\0\0\0\0\0\0\0",
+                .ext                   = "\0\0\0",
+                .parent_cluster_number = info->current_cluster_number,
+                .buffer_size           = CLUSTER_SIZE * 5,
+            };
+
+            syscall(6, (uint32_t) &request, 0, 0);
+
+            struct FAT32DirectoryTable* dir_table = request.buf; 
+
+            memcpy(request.name, info->paths[info->current_path_count-1], DIRECTORY_NAME_LENGTH);
+            request.parent_cluster_number = dir_table->table->cluster_low;
+
+            int32_t retcode;
+
+            syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
+
+            dir_table = request.buf; 
+            int j = 0;
+            bool found = FALSE;
+
+            while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
+            {
+                int k = 0;
+
+                while (k < dir_table[j].table->n_of_entries && !found)
+                {
+                    struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
+                    
+                    if (memcmp(entry->name, buf+param_indexes[i].index, param_indexes[i].length) == 0 
+                        &&  entry->attribute == ATTR_SUBDIRECTORY)
+                    
+                    {
+                        info->current_cluster_number = entry->cluster_low;
+                        memcpy(info->paths[info->current_path_count], request.name, DIRECTORY_NAME_LENGTH); 
+                        info->current_path_count++;
+                        found = TRUE;
+                    }
+
+                    k++;
+                }
+
+                j++;
+            }
         }
 
         i++;
@@ -164,7 +228,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest request = {
         .buf                   = &cl,
-        .name                  = info.current_directory_name,
+        .name                  = info.paths[current_cluster_number-1],
         .ext                   = "\0\0\0",
         .parent_cluster_number = info.current_cluster_number,
         .buffer_size           = CLUSTER_SIZE * 5,
@@ -186,8 +250,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
             int j = 1;
             while(j < dirTable[i].table->n_of_entries)
             {
-                //TODO : catat nama file/dir
-
+                //TODO : output nama file/dir
                 j++;
             }
 
@@ -206,9 +269,8 @@ int main(void) {
 
     struct CurrentDirectoryInfo current_directory_info =
     {
-        .parent_cluster_number = ROOT_CLUSTER_NUMBER,
         .current_cluster_number = ROOT_CLUSTER_NUMBER,
-        .current_directory_name = "root\0\0\0",
+        .current_path_count = 0,
     };
 
     // fungsi atas-atas belum fix :D

@@ -77,6 +77,8 @@ void main_interrupt_handler(struct CPURegister cpu, uint32_t int_number, struct 
 }
 
 void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptStack info) {
+
+    // read 
     if (cpu.eax == 0) {
         struct FAT32DriverRequest request = *(struct FAT32DriverRequest*) cpu.ebx;
         *((int8_t*) cpu.ecx) = read(request);
@@ -92,10 +94,12 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
     } 
     
     else if (cpu.eax == 5) {
-        puts((char *) cpu.ebx, cpu.ecx, cpu.edx); // Modified puts() on kernel side
+        puts((char *) cpu.ebx, cpu.ecx, cpu.edx); // belum diimplementasi
     } 
     
+    // read parent directory table only with its cluster number
     else if (cpu.eax == 6) {
-        
+        struct FAT32DriverRequest request = *(struct FAT32DriverRequest*) cpu.ebx;
+        read_clusters(request.buf, request.parent_cluster_number, 1);
     }
 }
