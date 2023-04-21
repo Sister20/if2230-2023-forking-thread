@@ -80,14 +80,22 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
     if (cpu.eax == 0) {
         struct FAT32DriverRequest request = *(struct FAT32DriverRequest*) cpu.ebx;
         *((int8_t*) cpu.ecx) = read(request);
-    } else if (cpu.eax == 4) {
+    } 
+    
+    else if (cpu.eax == 4) {
         keyboard_state_activate();
         __asm__("sti"); // Due IRQ is disabled when main_interrupt_handler() called
         while (is_keyboard_blocking());
         char buf[KEYBOARD_BUFFER_SIZE];
         get_keyboard_buffer(buf);
         memcpy((char *) cpu.ebx, buf, cpu.ecx);
-    } else if (cpu.eax == 5) {
+    } 
+    
+    else if (cpu.eax == 5) {
         puts((char *) cpu.ebx, cpu.ecx, cpu.edx); // Modified puts() on kernel side
+    } 
+    
+    else if (cpu.eax == 6) {
+        
     }
 }

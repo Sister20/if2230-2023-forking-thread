@@ -249,6 +249,7 @@ int8_t read_directory(struct FAT32DriverRequest request);
  * @return Error code: 0 success - 1 not a file - 2 not enough buffer - 3 not
  * found - -1 unknown - 4 invalid parent cluster
  */
+
 int8_t read(struct FAT32DriverRequest request);
 
 /**
