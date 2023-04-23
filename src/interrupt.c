@@ -78,7 +78,48 @@ void main_interrupt_handler(struct CPURegister cpu, uint32_t int_number, struct 
 
 void puts(char* buf, uint32_t length, uint8_t color)
 {
+    int counter = 0;
 
+    while (counter < length)
+    {
+        // Getting position cursor
+        uint16_t position_cursor = get_cursor_position();
+        uint8_t row = position_cursor / 80;
+        uint8_t col = position_cursor % 80;
+
+        if (buf[counter] == '\n'){
+            // If enter is pressed
+            if(row < 24){
+            // Move cursor to newline
+            framebuffer_set_cursor(row + 1, 0);
+            } 
+            
+            else {
+            scroll_behavior();
+            framebuffer_set_cursor(row, 0);
+            }
+        } 
+
+        else if (buf[counter] != '\0')
+        {
+            framebuffer_write(row, col, buf[counter], 0xF, 0);
+            // Handle wrapping behaviour
+            if(col < 79){
+            framebuffer_set_cursor(row, col + 1);
+            } 
+            
+            else if(row < 24) {
+            framebuffer_set_cursor(row + 1, 0);
+            } 
+            
+            else {
+            scroll_behavior();
+            framebuffer_set_cursor(row, 0);
+            }
+        }
+
+        counter++;
+    }
 }
 
 void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptStack info) {
