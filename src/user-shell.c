@@ -283,7 +283,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 {
     if (get_words_count(indexes) != 2)
     {
-        // tulis parameter cd tidak valid
+        // tulis parameter mkdir tidak valid
         return;
     }
 
@@ -307,12 +307,12 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     int i = 0;
     int target_buf_length = 6; // "cd    "
-    while (!is_default_deinx(new_path_indexes[i + 1]))
+    while (!is_default_index(new_path_indexes[i + 1]))
     {
         target_buf_length += new_path_indexes[i].length;
     }
 
-    char *new_dir_name;
+    char new_dir_name[8];
     for (int i = target_buf_length; i < new_path_indexes[i].length; i++)
     {
         if (i == 8)
@@ -333,13 +333,15 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
     {
-        char *target_buff;
+        char target_buff[target_buf_length];
         for (int i = 0; i < target_buf_length; i++)
         {
             target_buff[i] = buf[i];
         }
         // call cd command to move the directory
         cd_command(target_buff, new_indexes, &target_directory);
+
+        // TODO: handle failed cd
     }
 
     // create new directory in the target_directory
@@ -347,10 +349,11 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     struct FAT32DriverRequest write_request = {
         .buf = &cl,
         .ext = "\0\0\0",
-        .name = new_dir_name,
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
+
+    memcpy(write_request.name, new_dir_name, sizeof(new_dir_name));
 
     int32_t retcode;
 
@@ -364,6 +367,213 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     {
         // directory with the corresponding name already exist.
     }
+}
+
+void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
+{
+    if (get_words_count(indexes) != 2)
+    {
+        // tulis parameter cat tidak valid
+        return;
+    }
+
+    // convert "cat" to "cd   "
+    buf[0] = 'c'; // c
+    buf[1] = 'd'; // a
+    buf[2] = ' '; // t
+
+    struct IndexInfo new_indexes[INDEXES_MAX_COUNT];
+    reset_indexes(new_indexes);
+    // [cd] [intial_path]
+    get_buffer_indexes(buf, new_indexes, ' ', indexes[0].index, indexes[0].length + indexes[1].length);
+
+    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
+    reset_indexes(new_path_indexes);
+    // [path_segment_1] [path_segment_2] [path_segment_3] ...
+    get_buffer_indexes(buf, new_path_indexes, '/', new_indexes[1].index, new_indexes[1].length);
+
+    int i = 0;
+    int target_buf_length = 6; // "cd    "
+    while (!is_default_index(new_path_indexes[i + 1]))
+    {
+        target_buf_length += new_path_indexes[i].length;
+    }
+
+    char *target_file_name;
+    for (int i = target_buf_length; i < new_path_indexes[i].length; i++)
+    {
+        if (i == 8)
+        {
+            // return invalid target_file_name
+        }
+        target_file_name[i - target_buf_length] = buf[i];
+    }
+
+    // temporary CurrentDirectoryInfo for creating the new directory
+    struct CurrentDirectoryInfo target_directory = {
+        .current_cluster_number = info->current_cluster_number,
+        .current_path_count = info->current_path_count,
+    };
+
+    memcpy(target_directory.paths, info->paths, sizeof(info->paths));
+
+    // check if path_segment count > 1
+    if (!is_default_index(new_path_indexes[1]))
+    {
+        char *target_buff;
+        for (int i = 0; i < target_buf_length; i++)
+        {
+            target_buff[i] = buf[i];
+        }
+        // call cd command to move the directory
+        cd_command(target_buff, new_indexes, &target_directory);
+
+        // TODO: handle failed cd
+    }
+
+    // read the file from FATtable
+    struct ClusterBuffer cl[5];
+    struct FAT32DriverRequest read_request = {
+        .buf = &cl,
+        .ext = "\0\0\0",
+        .name = target_file_name,
+        .parent_cluster_number = target_directory.current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * 5,
+    };
+
+    int32_t retcode;
+
+    syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
+
+    if (retcode == 0)
+    {
+        struct FAT32DirectoryTable *dir_table = read_request.buf;
+
+        // TODO: Print buffer contents to the screen.
+    }
+    else
+    {
+        // file does not exist.
+    }
+}
+/**
+ * @param target_name           file or folder name
+ * @param parent_cluster_number parent cluster number for the corresponding folder
+ *
+ * @return 0                     : target_name not found;
+ *         parent_cluster_number : target_name found at file or folder with parent_cluster_number;
+ */
+uint32_t traverse_directories(char *target_name, uint32_t parent_cluster_number)
+{
+    bool is_found = 0;
+    struct ClusterBuffer cl[10];
+    struct FAT32DriverRequest read_folder_request = {
+        .buf = &cl,
+        .ext = "\0\0\0",
+        .parent_cluster_number = parent_cluster_number,
+        .buffer_size = CLUSTER_SIZE * 10,
+    };
+
+    memcpy(read_folder_request.name, target_name, sizeof(target_name));
+
+    int32_t retcode;
+    syscall(1, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
+
+    if (retcode == 0)
+    {
+        struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
+
+        uint32_t counter_entry = 0;
+        for (uint32_t i = 0; i < 10 && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
+        {
+            for (uint32_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
+            {
+                counter_entry++;
+                if (memcmp(dir_table[i].table[j].name, target_name, sizeof(target_name)) == 0)
+                {
+                    is_found = parent_cluster_number;
+                }
+                else if (dir_table[i].table[j].attribute == ATTR_SUBDIRECTORY)
+                {
+                    is_found = traverse_directories(target_name, (dir_table[i].table[j].cluster_high << 16) +
+                                                                     dir_table[i].table[j].cluster_low);
+                }
+            }
+        }
+    }
+
+    return is_found;
+}
+
+/**
+ * Calling syscall type-5 for printing the path after whereis command
+ *
+ * @param parent_cluster_number folder or file parent_cluster_number
+ *
+ * @return -
+ */
+void print_path(uint32_t cluster_number)
+{
+    // root found - base condition
+    if (cluster_number == ROOT_CLUSTER_NUMBER)
+    {
+        syscall(5, (uint32_t) "/", SHELL_BUFFER_SIZE, 0xF);
+        return;
+    }
+
+    struct ClusterBuffer cl[5];
+    struct FAT32DriverRequest read_folder_request = {
+        .buf = &cl,
+        .ext = "\0\0\0",
+        .parent_cluster_number = cluster_number,
+        .buffer_size = CLUSTER_SIZE * 5,
+    };
+
+    int32_t retcode;
+    syscall(6, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
+
+    if (retcode == 0)
+    {
+        struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
+
+        print_path((dir_table->table->cluster_high << 16) + dir_table->table->cluster_low);
+        syscall(5, (uint32_t) "/", SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t)dir_table->table->name, SHELL_BUFFER_SIZE, 0xF);
+    }
+}
+
+void whereis_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
+{
+    if (get_words_count(indexes) != 2)
+    {
+        syscall(5, (uint32_t) "Invalid command!", SHELL_BUFFER_SIZE, 0xF);
+        return;
+    }
+
+    char target_name[indexes[1].length];
+    for (uint32_t i = 0; i < indexes[1].length; i++)
+    {
+        target_name[i] = buf[i + indexes[1].index];
+    }
+
+    if (memcmp(target_name, "root", 4) == 0)
+    {
+        syscall(5, (uint32_t) "root: /", SHELL_BUFFER_SIZE, 0xF);
+        return;
+    }
+
+    uint32_t parent_cluster_number = traverse_directories(target_name, ROOT_CLUSTER_NUMBER);
+
+    if (parent_cluster_number == 0)
+    {
+        syscall(5, (uint32_t) "File or folder not found!\n", SHELL_BUFFER_SIZE, 0xF);
+        return;
+    }
+
+    // print the full path
+    syscall(5, (uint32_t)target_name, SHELL_BUFFER_SIZE, 0xF);
+    syscall(5, (uint32_t) ": ", SHELL_BUFFER_SIZE, 0xF);
+    print_path(parent_cluster_number);
 }
 
 int main(void)
