@@ -78,15 +78,17 @@ inserter:
 
 user-shell:
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/user-entry.s -o user-entry.o
-	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/user-shell.c -o user-shell.o
+	@$(CC) $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/stdmem.c -o $(OUTPUT_FOLDER)/stdmem.o
+	@$(CC) $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/user-shell.c -o $(OUTPUT_FOLDER)/user-shell.o
 	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 \
-		user-entry.o user-shell.o -o $(OUTPUT_FOLDER)/shell
+		user-entry.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/stdmem.o -o $(OUTPUT_FOLDER)/shell
 	@echo Linking object shell object files and generate flat binary...
 	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=elf32-i386\
-		user-entry.o user-shell.o -o $(OUTPUT_FOLDER)/shell_elf
+		user-entry.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/stdmem.o -o $(OUTPUT_FOLDER)/shell_elf
 	@echo Linking object shell object files and generate ELF32 for debugging...
 	@size --target=binary bin/shell
 	@rm -f *.o
+	@rm -f $(OUTPUT_FOLDER)/*.o
 
 insert-shell: inserter user-shell
 	@echo Inserting shell into root directory...
