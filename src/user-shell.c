@@ -697,7 +697,8 @@ int main(void)
 
             if (commandNumber == 1)
             {
-                ls_command(current_directory_info);
+                if (argsCount == 1) ls_command(current_directory_info);
+                else syscall(5, (uint32_t) too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 2)
