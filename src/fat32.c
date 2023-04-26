@@ -628,20 +628,20 @@ bool is_subdirectory_immediately_empty(struct FAT32DirectoryEntry *entry) {
   return !found_filled;
 }
 
-bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry) {
-  struct FAT32DirectoryTable subdir_table;
-  read_clusters(&subdir_table, entry->cluster_low, 1);
-  for (uint8_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
-       j++) {
-    struct FAT32DirectoryEntry *sub_entry = &(subdir_table.table[j]);
-    // Check if the entry not empty
-    if (!is_entry_empty(sub_entry)) {
-      return FALSE;
-    }
-  }
+// bool is_subdirectory_recursively_empty(struct FAT32DirectoryEntry *entry) {
+//   struct FAT32DirectoryTable subdir_table;
+//   read_clusters(&subdir_table, entry->cluster_low, 1);
+//   for (uint8_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
+//        j++) {
+//     struct FAT32DirectoryEntry *sub_entry = &(subdir_table.table[j]);
+//     // Check if the entry not empty
+//     if (!is_entry_empty(sub_entry)) {
+//       return FALSE;
+//     }
+//   }
 
-  return TRUE;
-};
+//   return TRUE;
+// };
 
 void reset_cluster(uint32_t cluster_number) {
   write_clusters(empty_cluster_value, cluster_number, 1);
