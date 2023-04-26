@@ -45,7 +45,7 @@ struct IndexInfo
 
 struct IndexInfo defaultIndexInfo = {
     .index = -1,
-    .length = 0,
+    .length = 0
 };
 
 struct ParseString
@@ -79,12 +79,18 @@ void print_newline()
     syscall(5, (uint32_t)newl, 1, 0xF);
 }
 
-void reset_indexes(struct IndexInfo *indexes)
+void reset_indexes(struct IndexInfo *indexes, uint32_t length)
 {
-    for (int i = 0; i < INDEXES_MAX_COUNT; i++)
+
+    uint32_t i = 0;
+    while (i < length)
     {
-        indexes[i] = defaultIndexInfo;
+        indexes[i].index = defaultIndexInfo.index;
+        indexes[i].length = defaultIndexInfo.length;
+
+        i++;
     }
+
 }
 
 void reset_buffer(char *buf, int length)
@@ -103,8 +109,6 @@ void get_buffer_indexes(char *buf, struct IndexInfo *indexes, char delimiter, in
     int i = starting_index;
     int limit = i + buffer_length;
     int count = 0;
-
-    reset_indexes(indexes);
 
     while (i < limit && buf[i] != '\0')
     {
@@ -219,13 +223,13 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     copy_directory_info(&temp_info, info);
 
     struct IndexInfo param_indexes[INDEXES_MAX_COUNT];
-    reset_indexes(param_indexes);
+    reset_indexes(param_indexes, INDEXES_MAX_COUNT);
 
-    get_buffer_indexes(buf, param_indexes, '/', indexes->index, indexes->length);
+    if ((uint32_t)indexes != 0) get_buffer_indexes(buf, param_indexes, '/', indexes->index, indexes->length);
 
     int i = 0;
 
-    if (buf[indexes->index] == '/')
+    if ((uint32_t)indexes != 0 && buf[indexes->index] == '/')
     {
         info->current_cluster_number = ROOT_CLUSTER_NUMBER;
         info->current_path_count = 0;
@@ -409,7 +413,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     }
 
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-    reset_indexes(new_path_indexes);
+    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
     get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 
@@ -495,7 +499,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     buf[2] = ' '; // t
 
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-    reset_indexes(new_path_indexes);
+    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
     get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 
@@ -676,7 +680,7 @@ int main(void)
     while (TRUE)
     {
         reset_buffer(buf, SHELL_BUFFER_SIZE);
-        reset_indexes(word_indexes);
+        reset_indexes(word_indexes, INDEXES_MAX_COUNT);
 
         const int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + current_directory_info.current_path_count * DIRECTORY_NAME_LENGTH + 1;
 
@@ -719,7 +723,7 @@ int main(void)
                     syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
             }
 
-            if (commandNumber == 1)
+            else if (commandNumber == 1)
             {
                 if (argsCount == 1)
                     ls_command(current_directory_info);
@@ -727,31 +731,31 @@ int main(void)
                     syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
             }
 
-            if (commandNumber == 2)
+            else if (commandNumber == 2)
             {
             }
 
-            if (commandNumber == 3)
+            else if (commandNumber == 3)
             {
             }
 
-            if (commandNumber == 4)
+            else if (commandNumber == 4)
             {
             }
 
-            if (commandNumber == 5)
+            else if (commandNumber == 5)
             {
             }
 
-            if (commandNumber == 6)
+            else if (commandNumber == 6)
             {
             }
 
-            if (commandNumber == 7)
+            else if (commandNumber == 7)
             {
             }
 
-            if (commandNumber == 8)
+            else if (commandNumber == 8)
             {
             }
         }
