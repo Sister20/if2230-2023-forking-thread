@@ -9,6 +9,7 @@
 #define DIRECTORY_NAME_LENGTH 8
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
+
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -68,6 +69,12 @@ void reset_indexes(struct IndexInfo *indexes)
     {
         indexes[i] = defaultIndexInfo;
     }
+}
+
+void reset_buffer(char *buf, int length)
+{
+    for (int i = 0; i < length; i++)
+        buf[i] = '\0';
 }
 
 void get_buffer_indexes(char *buf, struct IndexInfo *indexes, char delimiter, int starting_index, int buffer_length)
@@ -135,12 +142,6 @@ int get_words_count(struct IndexInfo *indexes)
 
 void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-    if (get_words_count(indexes) != 2)
-    {
-        // tulis parameter cd tidak valid
-        return;
-    }
-
     struct IndexInfo param_indexes[INDEXES_MAX_COUNT];
     reset_indexes(param_indexes);
 
@@ -154,7 +155,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         info->current_path_count = 0;
     }
 
-    while (i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
+    while ((uint32_t)indexes != 0 && i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
     {
 
         if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
@@ -208,7 +209,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
             int32_t retcode;
 
-            syscall(0, (uint32_t)&request, (uint32_t)&retcode, 0);
+            syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
             dir_table = request.buf;
             uint32_t j = 0;
@@ -242,7 +243,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     }
 }
 
-void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo info)
+void ls_command(struct CurrentDirectoryInfo info)
 {
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest request = {
@@ -252,11 +253,11 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    memcpy(request.name, info.paths[current_cluster_number - 1], DIRECTORY_NAME_LENGTH);
+    memcpy(request.name, info.paths[info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
 
     int32_t retcode;
 
-    syscall(0, (uint32_t)&request, (uint32_t)&retcode, 0);
+    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
     {
@@ -270,7 +271,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
             int j = 1;
             while (j < dirTable[i].table->n_of_entries)
             {
-                // TODO : output nama file/dir
+                syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, 0xF);
                 j++;
             }
 
@@ -279,14 +280,17 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
     }
 }
 
+/**
+ * Handling mkdir command in shell
+ *
+ * @param buf     buffer of char from user input
+ * @param indexes list of splitted command and path
+ * @param info    current directory info
+ *
+ * @return -
+ */
 void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-    if (get_words_count(indexes) != 2)
-    {
-        // tulis parameter mkdir tidak valid
-        return;
-    }
-
     // convert "mkdir" to "cd   "
     buf[0] = 'c'; // m
     buf[1] = 'd'; // k
@@ -295,31 +299,29 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
         buf[i] = ' '; // dir
     }
 
-    struct IndexInfo new_indexes[INDEXES_MAX_COUNT];
-    reset_indexes(new_indexes);
-    // [cd] [intial_path]
-    get_buffer_indexes(buf, new_indexes, ' ', indexes[0].index, indexes[0].length + indexes[1].length);
-
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
     reset_indexes(new_path_indexes);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
-    get_buffer_indexes(buf, new_path_indexes, '/', new_indexes[1].index, new_indexes[1].length);
+    get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 
     int i = 0;
     int target_buf_length = 6; // "cd    "
     while (!is_default_index(new_path_indexes[i + 1]))
     {
         target_buf_length += new_path_indexes[i].length;
+        i++;
+    }
+
+    if (new_path_indexes[i].length > 8)
+    {
+        syscall(5, (uint32_t) "Invalid new directory name! Maximum 7 characters!", SHELL_BUFFER_SIZE, 0xF);
+        return;
     }
 
     char new_dir_name[8];
-    for (int i = target_buf_length; i < new_path_indexes[i].length; i++)
+    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
-        if (i == 8)
-        {
-            // return invalid new_dir_name
-        }
-        new_dir_name[i - target_buf_length] = buf[i];
+        new_dir_name[j - target_buf_length] = buf[j];
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
@@ -339,7 +341,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
             target_buff[i] = buf[i];
         }
         // call cd command to move the directory
-        cd_command(target_buff, new_indexes, &target_directory);
+        cd_command(target_buff, indexes + 1, &target_directory);
 
         // TODO: handle failed cd
     }
@@ -359,54 +361,45 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
 
-    if (retcode == 0)
+    if (retcode != 0)
     {
-        // mkdir command success
-    }
-    else
-    {
-        // directory with the corresponding name already exist.
+        // failed to create new directory
     }
 }
 
+/**
+ * Handling cat command in shell
+ *
+ * @param buf     buffer of char from user input
+ * @param indexes list of splitted command and path
+ * @param info    current directory info
+ *
+ * @return -
+ */
 void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-    if (get_words_count(indexes) != 2)
-    {
-        // tulis parameter cat tidak valid
-        return;
-    }
-
-    // convert "cat" to "cd   "
+    // convert "cat" to "cd  "
     buf[0] = 'c'; // c
     buf[1] = 'd'; // a
     buf[2] = ' '; // t
 
-    struct IndexInfo new_indexes[INDEXES_MAX_COUNT];
-    reset_indexes(new_indexes);
-    // [cd] [intial_path]
-    get_buffer_indexes(buf, new_indexes, ' ', indexes[0].index, indexes[0].length + indexes[1].length);
-
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
     reset_indexes(new_path_indexes);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
-    get_buffer_indexes(buf, new_path_indexes, '/', new_indexes[1].index, new_indexes[1].length);
+    get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 
     int i = 0;
-    int target_buf_length = 6; // "cd    "
+    int target_buf_length = 4; // "cd  "
     while (!is_default_index(new_path_indexes[i + 1]))
     {
         target_buf_length += new_path_indexes[i].length;
+        i++;
     }
 
-    char *target_file_name;
-    for (int i = target_buf_length; i < new_path_indexes[i].length; i++)
+    char target_file_name[8];
+    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
-        if (i == 8)
-        {
-            // return invalid target_file_name
-        }
-        target_file_name[i - target_buf_length] = buf[i];
+        target_file_name[j - target_buf_length] = buf[j];
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
@@ -426,7 +419,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
             target_buff[i] = buf[i];
         }
         // call cd command to move the directory
-        cd_command(target_buff, new_indexes, &target_directory);
+        cd_command(target_buff, indexes + 1, &target_directory);
 
         // TODO: handle failed cd
     }
@@ -435,11 +428,12 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
-        .ext = "\0\0\0",
-        .name = target_file_name,
+        .ext = "\0\0\0", // TODO
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
+
+    memcpy(read_request.name, target_file_name, sizeof(target_file_name));
 
     int32_t retcode;
 
@@ -447,13 +441,11 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     if (retcode == 0)
     {
-        struct FAT32DirectoryTable *dir_table = read_request.buf;
-
-        // TODO: Print buffer contents to the screen.
+        syscall(5, (uint32_t)read_request.buf, SHELL_BUFFER_SIZE, 0xF);
     }
     else
     {
-        // file does not exist.
+        syscall(5, (uint32_t) "File not found", SHELL_BUFFER_SIZE, 0xF);
     }
 }
 /**
@@ -542,6 +534,15 @@ void print_path(uint32_t cluster_number)
     }
 }
 
+/**
+ * Handling whereis command in shell
+ *
+ * @param buf     buffer of char from user input
+ * @param indexes list of splitted command and path
+ * @param info    current directory info
+ *
+ * @return -
+ */
 void whereis_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
     if (get_words_count(indexes) != 2)
@@ -578,9 +579,11 @@ void whereis_command(char *buf, struct IndexInfo *indexes, struct CurrentDirecto
 
 int main(void)
 {
-
+    const int DIRECTORY_DISPLAY_OFFSET = 23;
     char buf[SHELL_BUFFER_SIZE];
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
+
+    char too_many_args_msg[] = "Too many arguments\n";
 
     struct CurrentDirectoryInfo current_directory_info =
         {
@@ -592,13 +595,87 @@ int main(void)
 
     while (TRUE)
     {
-
+        reset_buffer(buf, SHELL_BUFFER_SIZE);
         reset_indexes(word_indexes);
+
+        const int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + current_directory_info.current_path_count * DIRECTORY_NAME_LENGTH + 1;
+
+        char directoryDisplay[DIRECTORY_DISPLAY_LENGTH];
+
+        memcpy(directoryDisplay, "forking-thread-IF2230:", DIRECTORY_DISPLAY_OFFSET);
+
+        for (int i = 0; i < current_directory_info.current_path_count; i++)
+        {
+            memcpy(directoryDisplay + (i * DIRECTORY_NAME_LENGTH) + DIRECTORY_DISPLAY_OFFSET, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
+        }
+
+        memcpy(directoryDisplay + DIRECTORY_DISPLAY_LENGTH - 1, "$", 1);
+
+        syscall(5, (uint32_t)directoryDisplay, DIRECTORY_DISPLAY_LENGTH, 0xF);
+
+        syscall(4, (uint32_t)buf, SHELL_BUFFER_SIZE, 0);
+        syscall(5, (uint32_t)buf, SHELL_BUFFER_SIZE, 0xF);
+
+        get_buffer_indexes(buf, word_indexes, ' ', 0, SHELL_BUFFER_SIZE);
+
+        int commandNumber = get_command_number(buf, word_indexes[0].index, word_indexes[0].length);
+
+        if (commandNumber == -1)
+        {
+            syscall(5, "Command not found!\n", 19, 0xF);
+        }
+
+        else
+        {
+            int argsCount = get_words_count(word_indexes);
+
+            if (commandNumber == 0)
+            {
+                if (argsCount == 1)
+                    cd_command(buf, (uint32_t)0, &current_directory_info);
+                else if (argsCount == 2)
+                    cd_command(buf, word_indexes + 1, &current_directory_info);
+                else
+                    syscall(5, too_many_args_msg, 20, 0xF);
+            }
+
+            if (commandNumber == 1)
+            {
+                ls_command(current_directory_info);
+            }
+
+            if (commandNumber == 2)
+            {
+            }
+
+            if (commandNumber == 3)
+            {
+            }
+
+            if (commandNumber == 4)
+            {
+            }
+
+            if (commandNumber == 5)
+            {
+            }
+
+            if (commandNumber == 6)
+            {
+            }
+
+            if (commandNumber == 7)
+            {
+            }
+
+            if (commandNumber == 8)
+            {
+            }
+        }
+
         if (current_directory_info.current_cluster_number)
         {
         }
-        syscall(4, (uint32_t)buf, SHELL_BUFFER_SIZE, 0);
-        syscall(5, (uint32_t)buf, SHELL_BUFFER_SIZE, 0xF); // syscall ini belum implement fungsi put
     }
 
     return 0;
