@@ -36,13 +36,13 @@ struct CurrentDirectoryInfo
     uint32_t current_path_count;
     uint16_t current_cluster_number;
     // char current_directory_name[8];
-} __attribute__((packed));
+};
 
 struct IndexInfo
 {
     int index;
     int length;
-} __attribute__((packed));
+};
 
 struct IndexInfo defaultIndexInfo = {
     .index = -1,
@@ -53,7 +53,7 @@ struct ParseString
 {
     char word[SHELL_BUFFER_SIZE];
     int length;
-} __attribute__((packed));
+};
 
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
