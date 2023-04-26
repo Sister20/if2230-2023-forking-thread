@@ -413,7 +413,7 @@ void ls_command(struct CurrentDirectoryInfo info)
  *
  * @return -
  */
-void parse_path_for_cd(struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
+void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
 {
     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
@@ -440,7 +440,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     }
 
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-    path_to_cd(indexes, &new_path_indexes);
+    parse_path_for_cd(buf, indexes, new_path_indexes);
 
     int i = 0;
     int target_buf_length = 6; // "cd    "
@@ -521,7 +521,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     buf[2] = ' '; // t
 
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-    path_to_cd(indexes, &new_path_indexes);
+    parse_path_for_cd(buf, indexes, new_path_indexes);
 
     int i = 0;
     int target_buf_length = 4; // "cd  "
