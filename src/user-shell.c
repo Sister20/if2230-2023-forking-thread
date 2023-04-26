@@ -850,68 +850,73 @@ int main(void)
 
         get_buffer_indexes(buf, word_indexes, ' ', 0, SHELL_BUFFER_SIZE);
 
-        int commandNumber = get_command_number(buf, word_indexes[0].index, word_indexes[0].length);
+        int argsCount = get_words_count(word_indexes);
 
-        if (commandNumber == -1)
+        if (argsCount > 0)
         {
-            char msg[] = "Command not found!\n";
-            syscall(5, (uint32_t)msg, 19, 0xF);
+            int commandNumber = get_command_number(buf, word_indexes[0].index, word_indexes[0].length);
+
+            if (commandNumber == -1)
+            {
+                char msg[] = "Command not found!\n";
+                syscall(5, (uint32_t)msg, 19, 0xF);
+            }
+
+            else
+            {
+
+                if (commandNumber == 0)
+                {
+                    if (argsCount == 1)
+                        cd_command(buf, (uint32_t)0, &current_directory_info);
+                    else if (argsCount == 2)
+                        cd_command(buf, word_indexes + 1, &current_directory_info);
+                    else
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                }
+
+                else if (commandNumber == 1)
+                {
+                    if (argsCount == 1)
+                        ls_command(current_directory_info);
+                    else
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                }
+
+                else if (commandNumber == 2)
+                {
+                }
+
+                else if (commandNumber == 3)
+                {
+                }
+
+                else if (commandNumber == 4)
+                {
+                }
+
+                else if (commandNumber == 5)
+                {
+                }
+
+                else if (commandNumber == 6)
+                {
+                }
+
+                else if (commandNumber == 7)
+                {
+                }
+
+                else if (commandNumber == 8)
+                {
+                }
+            }
+
+            if (current_directory_info.current_cluster_number)
+            {
+            }
         }
 
-        else
-        {
-            int argsCount = get_words_count(word_indexes);
-
-            if (commandNumber == 0)
-            {
-                if (argsCount == 1)
-                    cd_command(buf, (uint32_t)0, &current_directory_info);
-                else if (argsCount == 2)
-                    cd_command(buf, word_indexes + 1, &current_directory_info);
-                else
-                    syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
-            }
-
-            else if (commandNumber == 1)
-            {
-                if (argsCount == 1)
-                    ls_command(current_directory_info);
-                else
-                    syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
-            }
-
-            else if (commandNumber == 2)
-            {
-            }
-
-            else if (commandNumber == 3)
-            {
-            }
-
-            else if (commandNumber == 4)
-            {
-            }
-
-            else if (commandNumber == 5)
-            {
-            }
-
-            else if (commandNumber == 6)
-            {
-            }
-
-            else if (commandNumber == 7)
-            {
-            }
-
-            else if (commandNumber == 8)
-            {
-            }
-        }
-
-        if (current_directory_info.current_cluster_number)
-        {
-        }
     }
 
     return 0;
