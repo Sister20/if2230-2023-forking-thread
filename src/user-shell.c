@@ -51,7 +51,7 @@ struct IndexInfo defaultIndexInfo = {
 
 struct ParseString
 {
-    char *word;
+    char word[SHELL_BUFFER_SIZE];
     int length;
 } __attribute__((packed));
 
@@ -162,6 +162,11 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
     dest->current_cluster_number = source->current_cluster_number;
     dest->current_path_count = source->current_path_count,
     memcpy(dest->paths, source->paths, PATH_MAX_COUNT * DIRECTORY_NAME_LENGTH);
+}
+
+void set_ParseString(struct ParseString *parse_string, char *str, int size) {
+    memcpy(parse_string->word, str, size);
+    parse_string->length = size;
 }
 
 /**
@@ -546,9 +551,11 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
+    struct ParseString target_filename;
+    set_ParseString(&target_filename, target_file_name, target_file_name_length);
     struct ParseString target_file_name_parsed;
     struct ParseString target_file_name_extension;
-    int split_result = split_filename_extension(target_file_name, target_file_name_length, &target_file_name_parsed, &target_file_name_extension);
+    int split_result = split_filename_extension(&target_filename, &target_file_name_parsed, &target_file_name_extension);
 
     memcpy(read_request.name, target_file_name, sizeof(target_file_name));
     if (split_result != 0 && split_result != 1)
@@ -671,14 +678,8 @@ void cp_command(struct CurrentDirectoryInfo source_dir,
 
     /* READING STAGE */
 
-    char nameword[8];
-    struct ParseString name = {
-        .word = nameword,
-    };
-    char extword[3];
-    struct ParseString ext = {
-        .word = extword,
-    };
+    struct ParseString name;
+    struct ParseString ext;
     int splitcode;
     
     // split source filename to name and extension
@@ -739,14 +740,8 @@ void cp_command(struct CurrentDirectoryInfo source_dir,
 }
 
 void rm_command(struct CurrentDirectoryInfo file_dir, const struct ParseString *file_name) {
-    char nameword[8];
-    struct ParseString name = {
-        .word = nameword,
-    };
-    char extword[3];
-    struct ParseString ext = {
-        .word = extword,
-    };
+    struct ParseString name;
+    struct ParseString ext;
     int splitcode;
     
     // split source filename to name and extension
