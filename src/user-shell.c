@@ -9,6 +9,7 @@
 #define DIRECTORY_NAME_LENGTH 8
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
+#define MAX_FILE_BUFFER_CLUSTER_SIZE 512    // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
 
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
@@ -172,13 +173,16 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
  * 2 - if file has no name
  * 3 - if file name or extension is too long
 */
-int split_filename_extension(char *filename, int filename_length,
+int split_filename_extension(const struct ParseString *filename,
                             struct ParseString *name,
                             struct ParseString *extension)
 {
+    name->length = 0;
+    extension->length = 0;
+
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
-    get_buffer_indexes(filename, temp_index, '.', 0, filename_length);
+    get_buffer_indexes(filename->word, temp_index, '.', 0, filename->length);
 
     int words_count = get_words_count(temp_index);
 
@@ -187,8 +191,8 @@ int split_filename_extension(char *filename, int filename_length,
         if(temp_index[0].index == 0) {
             if(temp_index[0].length > DIRECTORY_NAME_LENGTH) return 3;
             // copy name
-            memcpy(name->word, filename, temp_index[0].length);
-            name->length = name_length;
+            memcpy(name->word, filename->word, temp_index[0].length);
+            name->length = temp_index[0].length;
             return 1;
         }
         // file has no name (why?)
@@ -202,10 +206,10 @@ int split_filename_extension(char *filename, int filename_length,
     
     if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3;
     // copy name
-    memcpy(name->word, filename, name_length);
+    memcpy(name->word, filename->word, name_length);
     name->length = name_length;
     // copy extension
-    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    memcpy(extension->word, &(filename->word[last_word_starting_index]), last_word_length);
     extension->length = last_word_length;
     return 0;
 }
@@ -640,6 +644,128 @@ void print_path(uint32_t cluster_number)
     }
 }
 
+void cp_command(struct CurrentDirectoryInfo source_dir,
+                const struct ParseString *source_name,
+                struct CurrentDirectoryInfo dest_dir,
+                const struct ParseString *dest_name) {
+    // prepare buffer in memory for copying
+    struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
+
+    /* READING STAGE */
+
+    char nameword[8];
+    struct ParseString name = {
+        .word = nameword,
+    };
+    char extword[3];
+    struct ParseString ext = {
+        .word = extword,
+    };
+    int splitcode;
+    
+    // split source filename to name and extension
+    splitcode = split_filename_extension(source_name, &name, &ext);
+    if(splitcode == 2 || splitcode == 3){
+        syscall(5, "Source file not found!\n", 19, 0xF);
+        return;
+    }
+
+    // prepare read file request
+    struct FAT32DriverRequest read_request = {
+        .buf = &cl,
+        // .name = EMPTY_NAME,
+        .ext = EMPTY_EXTENSION,
+        .parent_cluster_number = source_dir.current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
+    };
+    memcpy(read_request.name, name.word, name.length);
+    memcpy(read_request.ext, ext.word, ext.length);
+
+    // copy file to buffer memory
+    int32_t retcode;
+    syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
+    
+    if (retcode == 0)
+    {
+        // read file to buffer success
+        /* WRITING STAGE */
+
+        // split source filename to name and extension
+        splitcode = split_filename_extension(dest_name, &name, &ext);
+        if(splitcode == 2 || splitcode == 3){
+            syscall(5, "Source file not found!\n", 19, 0xF);
+            return;
+        }
+
+        // prepare write file request
+        struct FAT32DriverRequest write_request = {
+            .buf = &cl,
+            // .name = EMPTY_NAME,
+            .ext = EMPTY_EXTENSION,
+            .parent_cluster_number = dest_dir.current_cluster_number,
+            .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
+        };
+        memcpy(write_request.name, name.word, name.length);
+        memcpy(write_request.ext, ext.word, ext.length);
+
+        // copy file from memory to disk
+        syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
+        if(retcode ) {
+
+        }
+    }
+    else
+    {
+        // try read folder
+    }
+}
+
+void rm_command(struct CurrentDirectoryInfo file_dir, const struct ParseString *file_name) {
+    char nameword[8];
+    struct ParseString name = {
+        .word = nameword,
+    };
+    char extword[3];
+    struct ParseString ext = {
+        .word = extword,
+    };
+    int splitcode;
+    
+    // split source filename to name and extension
+    splitcode = split_filename_extension(file_name, &name, &ext);
+    if(splitcode == 2 || splitcode == 3){
+        syscall(5, "Source file not found!\n", 19, 0xF);
+        return;
+    }
+
+    // create delete request
+    struct FAT32DriverRequest delete_request = {
+        // .name = EMPTY_NAME,
+        .ext = EMPTY_EXTENSION,
+        .parent_cluster_number = file_dir.current_cluster_number,
+    };
+    memcpy(delete_request.name, name.word, name.length);
+    memcpy(delete_request.ext, ext.word, ext.length);
+
+    int32_t retcode;
+    syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+}
+
+void mv_command(struct CurrentDirectoryInfo source_dir,
+                const struct ParseString *source_name,
+                struct CurrentDirectoryInfo dest_dir,
+                const struct ParseString *dest_name) {
+    cp_command(source_dir,
+                source_name,
+                dest_dir,
+                dest_name);
+    
+    rm_command(source_dir, source_name);
+}
+
+void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
+{
+}
 
 int main(void)
 {
