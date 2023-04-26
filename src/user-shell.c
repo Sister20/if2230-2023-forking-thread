@@ -10,6 +10,8 @@
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
 
+#define EMPTY_EXTENSION "\0\0\0"
+#define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -43,6 +45,12 @@ struct IndexInfo defaultIndexInfo = {
     .index = -1,
     .length = 0,
 };
+
+struct ParseString
+{
+    char *word;
+    int length;
+} __attribute__((packed));
 
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
@@ -165,7 +173,9 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
  * 2 - if file has no name
  * 3 - if file name or extension is too long
  */
-int split_filename_extension(char *filename, int filename_length, char *name, char *extension)
+int split_filename_extension(char *filename, int filename_length,
+                             struct ParseString *name,
+                             struct ParseString *extension)
 {
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
@@ -189,15 +199,16 @@ int split_filename_extension(char *filename, int filename_length, char *name, ch
     if (name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3)
         return 3;
     // copy name
-    memcpy(name, filename, name_length);
+    memcpy(name->word, filename, name_length);
+    name->length = name_length;
     // copy extension
-    memcpy(extension, &filename[last_word_starting_index], last_word_length);
+    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    extension->length = last_word_length;
     return 0;
 }
 
 void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-
     struct CurrentDirectoryInfo temp_info = {};
     copy_directory_info(&temp_info, info);
 
@@ -444,7 +455,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest write_request = {
         .buf = &cl,
-        .ext = "\0\0\0",
+        .ext = EMPTY_EXTENSION,
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
@@ -490,7 +501,8 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         i++;
     }
 
-    char target_file_name[new_path_indexes[i].length];
+    int target_file_name_length = new_path_indexes[i].length;
+    char target_file_name[target_file_name_length];
     for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
         target_file_name[j - target_buf_length] = buf[j];
@@ -519,12 +531,21 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
-        .ext = "\0\0\0", // TODO
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
+    struct ParseString target_file_name_parsed;
+    struct ParseString target_file_name_extension;
+    int split_result = split_filename_extension(target_file_name, target_file_name_length, &target_file_name_parsed, &target_file_name_extension);
+
     memcpy(read_request.name, target_file_name, sizeof(target_file_name));
+    if (split_result != 0 && split_result != 1)
+    {
+        syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
+        return;
+    }
+    memcpy(read_request.ext, target_file_name_extension.word, target_file_name_extension.length);
 
     int32_t retcode;
 
@@ -542,6 +563,8 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     }
 }
 /**
+ * Traverse all directories from ROOT to find a folder or file with name equals to target_name
+ *
  * @param target_name           file or folder name
  * @param parent_cluster_number parent cluster number for the corresponding folder
  *
