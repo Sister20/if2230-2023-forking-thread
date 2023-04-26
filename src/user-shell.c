@@ -298,7 +298,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
-                    .name = "\0\0\0\0\0\0\0\0",
+                    .name = "\0\0\0\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
                     .buffer_size = CLUSTER_SIZE * 5,
@@ -308,7 +308,8 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                 struct FAT32DirectoryTable *dir_table = request.buf;
 
-                memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
+                memcpy(request.name, buf + param_indexes[i].index, param_indexes[i].length);
+
                 request.parent_cluster_number = dir_table->table->cluster_low;
 
                 int32_t retcode;
