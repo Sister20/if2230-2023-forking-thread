@@ -12,6 +12,8 @@
 
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
+#define EMPTY_EXTENSION "\0\0\0"
+#define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -46,7 +48,8 @@ struct IndexInfo defaultIndexInfo = {
     .length = 0,
 };
 
-struct ParseString {
+struct ParseString
+{
     char *word;
     int length;
 } __attribute__((packed));
@@ -73,7 +76,7 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 void print_newline()
 {
     char newl[1] = "\n";
-    syscall(5, (uint32_t) newl, 1, 0xF);
+    syscall(5, (uint32_t)newl, 1, 0xF);
 }
 
 void reset_indexes(struct IndexInfo *indexes)
@@ -171,10 +174,10 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
  * 1 - if file does not have extension,
  * 2 - if file has no name
  * 3 - if file name or extension is too long
-*/
+ */
 int split_filename_extension(char *filename, int filename_length,
-                            struct ParseString *name,
-                            struct ParseString *extension)
+                             struct ParseString *name,
+                             struct ParseString *extension)
 {
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
@@ -182,21 +185,29 @@ int split_filename_extension(char *filename, int filename_length,
 
     int words_count = get_words_count(temp_index);
 
-    if(words_count == 1) {
-        if(temp_index[0].index == 0) return 1;  // filename has no extension
-        if(temp_index[0].index > 0) return 2;   // file has no name (why?)
+    if (words_count == 1)
+    {
+        if (temp_index[0].index == 0)
+            return 1; // filename has no extension
+        if (temp_index[0].index > 0)
+            return 2; // file has no name (why?)
     }
 
-    int last_word_starting_index = temp_index[words_count-1].index;
-    int last_word_length = temp_index[words_count-1].length;
+    int last_word_starting_index = temp_index[words_count - 1].index;
+    int last_word_length = temp_index[words_count - 1].length;
     // starting from 0 to (last_word_starting_index - 2) is file name
     int name_length = last_word_starting_index - 1; // therefore (last_word_starting_index - 2) + 1 is length of name
-    
-    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3;
+
+    if (name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3)
+        return 3;
     // copy name
     memcpy(name->word, filename, name_length);
     name->length = name_length;
+    memcpy(name->word, filename, name_length);
+    name->length = name_length;
     // copy extension
+    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    extension->length = last_word_length;
     memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
     extension->length = last_word_length;
     return 0;
@@ -258,8 +269,8 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
             {
                 char msg[] = "Directory name is too long: ";
-                syscall(5, (uint32_t) msg, 29, 0xF);
-                syscall(5,(uint32_t) buf + param_indexes[i].index, param_indexes[i].length, 0xF);
+                syscall(5, (uint32_t)msg, 29, 0xF);
+                syscall(5, (uint32_t)buf + param_indexes[i].index, param_indexes[i].length, 0xF);
                 print_newline();
 
                 return;
@@ -286,10 +297,10 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
             if (retcode != 0)
-            {   
+            {
                 char msg[] = "Failed to read directory: ";
-                syscall(5, (uint32_t) msg, 27, 0xF);
-                syscall(5, (uint32_t) request.name, DIRECTORY_NAME_LENGTH, 0xF);
+                syscall(5, (uint32_t)msg, 27, 0xF);
+                syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
                 print_newline();
 
                 if (retcode == 1)
@@ -297,11 +308,11 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
                     char errorMsg[] = "Error: not a folder\n";
                     syscall(5, (uint32_t)errorMsg, 21, 0xF);
                 }
-            
+
                 else if (retcode == 2)
                 {
                     char errorMsg[] = "Error: directory not found\n";
-                    syscall(5, (uint32_t) errorMsg, 21, 0xF);
+                    syscall(5, (uint32_t)errorMsg, 21, 0xF);
                 }
 
                 return;
@@ -412,13 +423,13 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     if (new_path_indexes[i].length > 8)
     {
-        char msg[] = "Invalid new directory name! Maximum 7 characters!";
+        char msg[] = "Invalid new directory name! Maximum 7 characters!\n";
 
-        syscall(5, (uint32_t) msg, SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t)msg, 50, 0xF);
         return;
     }
 
-    char new_dir_name[8];
+    char new_dir_name[new_path_indexes[i].length];
     for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
         new_dir_name[j - target_buf_length] = buf[j];
@@ -450,7 +461,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest write_request = {
         .buf = &cl,
-        .ext = "\0\0\0",
+        .ext = EMPTY_EXTENSION,
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
@@ -496,7 +507,8 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         i++;
     }
 
-    char target_file_name[8];
+    int target_file_name_length = new_path_indexes[i].length;
+    char target_file_name[target_file_name_length];
     for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
         target_file_name[j - target_buf_length] = buf[j];
@@ -525,12 +537,21 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
-        .ext = "\0\0\0", // TODO
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
+    struct ParseString target_file_name_parsed;
+    struct ParseString target_file_name_extension;
+    int split_result = split_filename_extension(target_file_name, target_file_name_length, &target_file_name_parsed, &target_file_name_extension);
+
     memcpy(read_request.name, target_file_name, sizeof(target_file_name));
+    if (split_result != 0 && split_result != 1)
+    {
+        syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
+        return;
+    }
+    memcpy(read_request.ext, target_file_name_extension.word, target_file_name_extension.length);
 
     int32_t retcode;
 
@@ -538,14 +559,18 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     if (retcode == 0)
     {
-        syscall(5, (uint32_t)read_request.buf, SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t)read_request.buf, read_request.buffer_size, 0xF);
+        print_newline();
     }
     else
     {
-        syscall(5, (uint32_t) "File not found", SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t) "File not found", 14, 0xF);
+        print_newline();
     }
 }
 /**
+ * Traverse all directories from ROOT to find a folder or file with name equals to target_name
+ *
  * @param target_name           file or folder name
  * @param parent_cluster_number parent cluster number for the corresponding folder
  *
@@ -606,7 +631,7 @@ void print_path(uint32_t cluster_number)
     // root found - base condition
     if (cluster_number == ROOT_CLUSTER_NUMBER)
     {
-        syscall(5, (uint32_t) "/", SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t) "/", 1, 0xF);
         return;
     }
 
@@ -626,11 +651,11 @@ void print_path(uint32_t cluster_number)
         struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
 
         print_path((dir_table->table->cluster_high << 16) + dir_table->table->cluster_low);
-        syscall(5, (uint32_t) "/", SHELL_BUFFER_SIZE, 0xF);
-        syscall(5, (uint32_t)dir_table->table->name, SHELL_BUFFER_SIZE, 0xF);
+        syscall(5, (uint32_t) "/", 1, 0xF);
+        syscall(5, (uint32_t)dir_table->table->name, 8, 0xF);
+        print_newline();
     }
 }
-
 
 int main(void)
 {
@@ -678,7 +703,7 @@ int main(void)
         if (commandNumber == -1)
         {
             char msg[] = "Command not found!\n";
-            syscall(5, (uint32_t) msg, 19, 0xF);
+            syscall(5, (uint32_t)msg, 19, 0xF);
         }
 
         else
@@ -692,13 +717,15 @@ int main(void)
                 else if (argsCount == 2)
                     cd_command(buf, word_indexes + 1, &current_directory_info);
                 else
-                    syscall(5, (uint32_t) too_many_args_msg, 20, 0xF);
+                    syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 1)
             {
-                if (argsCount == 1) ls_command(current_directory_info);
-                else syscall(5, (uint32_t) too_many_args_msg, 20, 0xF);
+                if (argsCount == 1)
+                    ls_command(current_directory_info);
+                else
+                    syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 2)
