@@ -256,7 +256,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
 
     int32_t retcode;
 
-    syscall(0, (uint32_t)&request, (uint32_t)&retcode, 0);
+    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
     {
@@ -339,7 +339,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
             target_buff[i] = buf[i];
         }
         // call cd command to move the directory
-        cd_command(target_buff, new_indexes, &target_directory);
+        cd_command(target_buff, new_indexes, &target_directory); 
     }
 
     // create new directory in the target_directory
@@ -377,7 +377,7 @@ int main(void)
             .current_cluster_number = ROOT_CLUSTER_NUMBER,
             .current_path_count = 0,
         };
-
+    
     // fungsi atas-atas belum fix :D
 
     while (TRUE)
