@@ -236,133 +236,137 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     struct IndexInfo param_indexes[INDEXES_MAX_COUNT];
     reset_indexes(param_indexes, INDEXES_MAX_COUNT);
 
-    if ((uint32_t)indexes != 0)
-        get_buffer_indexes(buf, param_indexes, '/', indexes->index, indexes->length);
+    bool is_empty_param = (uint32_t)indexes == 0;
 
-    int i = 0;
-
-    if ((uint32_t)indexes != 0 && buf[indexes->index] == '/')
+    if ((!is_empty_param && buf[indexes->index] == '/') || is_empty_param)
     {
-        info->current_cluster_number = ROOT_CLUSTER_NUMBER;
-        info->current_path_count = 0;
+        temp_info.current_cluster_number = ROOT_CLUSTER_NUMBER;
+        temp_info.current_path_count = 0;
     }
 
-    while ((uint32_t)indexes != 0 && i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
+    if (!is_empty_param)
     {
+        get_buffer_indexes(buf, param_indexes, '/', indexes->index, indexes->length);
 
-        if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
+        int i = 0;
+
+        while (i < get_words_count(param_indexes))
         {
-            i++;
-            continue;
-        }
 
-        else if (param_indexes[i].length == 2 && memcmp(buf + param_indexes[i].index, "..", 2) == 0)
-        {
-            // TODO :go to parent dir
-
-            if (temp_info.current_cluster_number != ROOT_CLUSTER_NUMBER)
+            if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
             {
-                struct ClusterBuffer cl = {0};
+                i++;
+                continue;
+            }
+
+            else if (param_indexes[i].length == 2 && memcmp(buf + param_indexes[i].index, "..", 2) == 0)
+            {
+                // TODO :go to parent dir
+
+                if (temp_info.current_cluster_number != ROOT_CLUSTER_NUMBER)
+                {
+                    struct ClusterBuffer cl = {0};
+                    struct FAT32DriverRequest request = {
+                        .buf = &cl,
+                        .name = "\0\0\0\0\0\0\0\0",
+                        .ext = "\0\0\0",
+                        .parent_cluster_number = temp_info.current_cluster_number,
+                        .buffer_size = CLUSTER_SIZE,
+                    };
+
+                    syscall(6, (uint32_t)&request, 0, 0);
+
+                    struct FAT32DirectoryTable *dir_table = request.buf;
+
+                    temp_info.current_cluster_number = dir_table->table->cluster_low;
+                    temp_info.current_path_count--;
+                }
+            }
+
+            else
+            {
+                if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
+                {
+                    char msg[] = "Directory name is too long: ";
+                    syscall(5, (uint32_t)msg, 29, 0xF);
+                    syscall(5, (uint32_t)buf + param_indexes[i].index, param_indexes[i].length, 0xF);
+                    print_newline();
+
+                    return;
+                }
+                struct ClusterBuffer cl[5];
+
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
                     .name = "\0\0\0\0\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
-                    .buffer_size = CLUSTER_SIZE,
+                    .buffer_size = CLUSTER_SIZE * 5,
                 };
 
                 syscall(6, (uint32_t)&request, 0, 0);
 
                 struct FAT32DirectoryTable *dir_table = request.buf;
 
-                temp_info.current_cluster_number = dir_table->table->cluster_low;
-                temp_info.current_path_count--;
-            }
-        }
+                memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
+                request.parent_cluster_number = dir_table->table->cluster_low;
 
-        else
-        {
-            if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
-            {
-                char msg[] = "Directory name is too long: ";
-                syscall(5, (uint32_t)msg, 29, 0xF);
-                syscall(5, (uint32_t)buf + param_indexes[i].index, param_indexes[i].length, 0xF);
-                print_newline();
+                int32_t retcode;
 
-                return;
-            }
-            struct ClusterBuffer cl[5];
+                syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
-            struct FAT32DriverRequest request = {
-                .buf = &cl,
-                .name = "\0\0\0\0\0\0\0\0",
-                .ext = "\0\0\0",
-                .parent_cluster_number = temp_info.current_cluster_number,
-                .buffer_size = CLUSTER_SIZE * 5,
-            };
-
-            syscall(6, (uint32_t)&request, 0, 0);
-
-            struct FAT32DirectoryTable *dir_table = request.buf;
-
-            memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
-            request.parent_cluster_number = dir_table->table->cluster_low;
-
-            int32_t retcode;
-
-            syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
-
-            if (retcode != 0)
-            {
-                char msg[] = "Failed to read directory: ";
-                syscall(5, (uint32_t)msg, 27, 0xF);
-                syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
-                print_newline();
-
-                if (retcode == 1)
+                if (retcode != 0)
                 {
-                    char errorMsg[] = "Error: not a folder\n";
-                    syscall(5, (uint32_t)errorMsg, 21, 0xF);
-                }
+                    char msg[] = "Failed to read directory: ";
+                    syscall(5, (uint32_t)msg, 27, 0xF);
+                    syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
+                    print_newline();
 
-                else if (retcode == 2)
-                {
-                    char errorMsg[] = "Error: directory not found\n";
-                    syscall(5, (uint32_t)errorMsg, 21, 0xF);
-                }
-
-                return;
-            }
-
-            dir_table = request.buf;
-            uint32_t j = 0;
-            bool found = FALSE;
-
-            while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
-            {
-                int k = 0;
-
-                while (k < dir_table[j].table->n_of_entries && !found)
-                {
-                    struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
-
-                    if (memcmp(entry->name, buf + param_indexes[i].index, param_indexes[i].length) == 0 && entry->attribute == ATTR_SUBDIRECTORY)
-
+                    if (retcode == 1)
                     {
-                        temp_info.current_cluster_number = entry->cluster_low;
-                        memcpy(temp_info.paths[temp_info.current_path_count], request.name, DIRECTORY_NAME_LENGTH);
-                        temp_info.current_path_count++;
-                        found = TRUE;
+                        char errorMsg[] = "Error: not a folder\n";
+                        syscall(5, (uint32_t)errorMsg, 21, 0xF);
                     }
 
-                    k++;
+                    else if (retcode == 2)
+                    {
+                        char errorMsg[] = "Error: directory not found\n";
+                        syscall(5, (uint32_t)errorMsg, 28, 0xF);
+                    }
+
+                    return;
                 }
 
-                j++;
-            }
-        }
+                dir_table = request.buf;
+                uint32_t j = 0;
+                bool found = FALSE;
 
-        i++;
+                while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
+                {
+                    int k = 0;
+
+                    while (k < dir_table[j].table->n_of_entries && !found)
+                    {
+                        struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
+
+                        if (memcmp(entry->name, buf + param_indexes[i].index, param_indexes[i].length) == 0 && entry->attribute == ATTR_SUBDIRECTORY)
+
+                        {
+                            temp_info.current_cluster_number = entry->cluster_low;
+                            memcpy(temp_info.paths[temp_info.current_path_count], request.name, DIRECTORY_NAME_LENGTH);
+                            temp_info.current_path_count++;
+                            found = TRUE;
+                        }
+
+                        k++;
+                    }
+
+                    j++;
+                }
+            }
+
+            i++;
+        }
     }
 
     copy_directory_info(info, &temp_info);
@@ -801,7 +805,7 @@ void mv_command(struct CurrentDirectoryInfo source_dir,
 
 int main(void)
 {
-    const int DIRECTORY_DISPLAY_OFFSET = 23;
+    const int DIRECTORY_DISPLAY_OFFSET = 24;
     char buf[SHELL_BUFFER_SIZE];
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
 
@@ -820,15 +824,21 @@ int main(void)
         reset_buffer(buf, SHELL_BUFFER_SIZE);
         reset_indexes(word_indexes, INDEXES_MAX_COUNT);
 
-        const int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + current_directory_info.current_path_count * DIRECTORY_NAME_LENGTH + 1;
+        int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + (current_directory_info.current_path_count * (DIRECTORY_NAME_LENGTH+1));
+
+        if (current_directory_info.current_path_count == 0) DIRECTORY_DISPLAY_LENGTH++;
 
         char directoryDisplay[DIRECTORY_DISPLAY_LENGTH];
 
-        memcpy(directoryDisplay, "forking-thread-IF2230:", DIRECTORY_DISPLAY_OFFSET);
+        memcpy(directoryDisplay, "forking-thread-IF2230:/", DIRECTORY_DISPLAY_OFFSET);
+
+        char slash[] = "/";
 
         for (uint32_t i = 0; i < current_directory_info.current_path_count; i++)
         {
-            memcpy(directoryDisplay + (i * DIRECTORY_NAME_LENGTH) + DIRECTORY_DISPLAY_OFFSET, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
+            int offset = (i * (DIRECTORY_NAME_LENGTH + 1)) + DIRECTORY_DISPLAY_OFFSET;
+            if (i > 0) memcpy(directoryDisplay + offset - 1, slash, 1);
+            memcpy(directoryDisplay + offset, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
         }
 
         memcpy(directoryDisplay + DIRECTORY_DISPLAY_LENGTH - 1, "$", 1);
