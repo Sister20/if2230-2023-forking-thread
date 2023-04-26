@@ -193,7 +193,6 @@ int split_filename_extension(char *filename, int filename_length, char *name, ch
 
 void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-
     struct CurrentDirectoryInfo temp_info = {};
     copy_directory_info(&temp_info, info);
 
@@ -500,7 +499,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
     {
-        char *target_buff;
+        char target_buff[target_buf_length];
         for (int i = 0; i < target_buf_length; i++)
         {
             target_buff[i] = buf[i];
