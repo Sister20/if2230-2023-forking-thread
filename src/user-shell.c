@@ -65,7 +65,8 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 
 void print_newline()
 {
-    syscall(5, "\n", 1, 0xF);
+    char newl[1] = "\n";
+    syscall(5, (uint32_t) newl, 1, 0xF);
 }
 
 void reset_indexes(struct IndexInfo *indexes)
@@ -178,11 +179,11 @@ int split_filename_extension(char *filename, int filename_length, char *name, ch
     }
 
     int last_word_starting_index = temp_index[words_count-1].index;
-    int last_word_length = temp_index[words_count-1].length
+    int last_word_length = temp_index[words_count-1].length;
     // starting from 0 to (last_word_starting_index - 2) is file name
     int name_length = last_word_starting_index - 1; // therefore (last_word_starting_index - 2) + 1 is length of name
     
-    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3
+    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3;
     // copy name
     memcpy(name, filename, name_length);
     // copy extension
@@ -246,8 +247,9 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         {
             if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
             {
-                syscall(5, "Directory name is too long: ", 29, 0xF);
-                syscall(5, buf + param_indexes[i].index, param_indexes[i].length, 0xF);
+                char msg[] = "Directory name is too long: ";
+                syscall(5, (uint32_t) msg, 29, 0xF);
+                syscall(5,(uint32_t) buf + param_indexes[i].index, param_indexes[i].length, 0xF);
                 print_newline();
 
                 return;
@@ -274,15 +276,24 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
             if (retcode != 0)
-            {
-                syscall(5, "Failed to read directory: ", 27, 0xF);
-                syscall(5, request.name, DIRECTORY_NAME_LENGTH, 0xF);
+            {   
+                char msg[] = "Failed to read directory: ";
+                syscall(5, (uint32_t) msg, 27, 0xF);
+                syscall(5, (uint32_t) request.name, DIRECTORY_NAME_LENGTH, 0xF);
                 print_newline();
 
                 if (retcode == 1)
-                    syscall(5, "Error: not a folder\n", 21, 0xF);
+                {
+                    char errorMsg[] = "Error: not a folder\n";
+                    syscall(5, (uint32_t)errorMsg, 21, 0xF);
+                }
+            
                 else if (retcode == 2)
-                    syscall(5, "Error: directory not found\n", 21, 0xF);
+                {
+                    char errorMsg[] = "Error: directory not found\n";
+                    syscall(5, (uint32_t) errorMsg, 21, 0xF);
+                }
+
                 return;
             }
 
@@ -391,7 +402,9 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     if (new_path_indexes[i].length > 8)
     {
-        syscall(5, (uint32_t) "Invalid new directory name! Maximum 7 characters!", SHELL_BUFFER_SIZE, 0xF);
+        char msg[] = "Invalid new directory name! Maximum 7 characters!";
+
+        syscall(5, (uint32_t) msg, SHELL_BUFFER_SIZE, 0xF);
         return;
     }
 
@@ -608,9 +621,6 @@ void print_path(uint32_t cluster_number)
     }
 }
 
-void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
-{
-}
 
 int main(void)
 {
@@ -639,7 +649,7 @@ int main(void)
 
         memcpy(directoryDisplay, "forking-thread-IF2230:", DIRECTORY_DISPLAY_OFFSET);
 
-        for (int i = 0; i < current_directory_info.current_path_count; i++)
+        for (uint32_t i = 0; i < current_directory_info.current_path_count; i++)
         {
             memcpy(directoryDisplay + (i * DIRECTORY_NAME_LENGTH) + DIRECTORY_DISPLAY_OFFSET, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
         }
@@ -657,7 +667,8 @@ int main(void)
 
         if (commandNumber == -1)
         {
-            syscall(5, "Command not found!\n", 19, 0xF);
+            char msg[] = "Command not found!\n";
+            syscall(5, (uint32_t) msg, 19, 0xF);
         }
 
         else
@@ -671,7 +682,7 @@ int main(void)
                 else if (argsCount == 2)
                     cd_command(buf, word_indexes + 1, &current_directory_info);
                 else
-                    syscall(5, too_many_args_msg, 20, 0xF);
+                    syscall(5, (uint32_t) too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 1)
