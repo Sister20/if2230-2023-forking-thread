@@ -149,7 +149,7 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
 {
     dest->current_cluster_number = source->current_cluster_number;
     dest->current_path_count = source->current_path_count,
-    memcpy(dest->paths, source->paths, PATH_MAX_COUNT);
+    memcpy(dest->paths, source->paths, PATH_MAX_COUNT * DIRECTORY_NAME_LENGTH);
 }
 
 
@@ -362,12 +362,9 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
-    struct CurrentDirectoryInfo target_directory = {
-        .current_cluster_number = info->current_cluster_number,
-        .current_path_count = info->current_path_count,
-    };
+    struct CurrentDirectoryInfo target_directory = {};
 
-    memcpy(target_directory.paths, info->paths, sizeof(info->paths));
+    copy_directory_info(&target_directory, info);
 
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
@@ -407,7 +404,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
 void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-
+    
 }
 
 int main(void)

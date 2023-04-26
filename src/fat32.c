@@ -458,23 +458,15 @@ int8_t delete(struct FAT32DriverRequest request) {
 
   uint16_t now_cluster_number = request.parent_cluster_number;
   uint16_t prev_cluster_number;
-  bool is_deleting_directory = memcmp(request.ext, "\0\0\0", 3) == 0;
+
   while (!end_of_directory && !found_directory) {
     for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) &&
                         !found_directory;
          i++) {
       entry = &(driver_state.dir_table_buf.table[i]);
       if (!is_entry_empty(entry)) {
-        if (is_deleting_directory) {
-          found_directory =
-              is_subdirectory(entry) && is_dir_name_same(entry, request);
+          found_directory = is_dir_ext_name_same(entry, request);
         }
-
-        else {
-          found_directory =
-              !is_subdirectory(entry) && is_dir_ext_name_same(entry, request);
-        }
-      }
 
       else {
         found_directory = FALSE;
@@ -813,16 +805,8 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req) {
 
       // Check if it's similar
 
-      if (is_creating_directory)
-      {
-        same_entry = is_dir_name_same(entry, req);
-      }
-      else
-      {
-        same_entry =
-            is_dir_ext_name_same(entry, req);
-      }
-
+      same_entry = is_dir_ext_name_same(entry, req);
+      
       if (same_entry) {
         return TRUE;
       }
