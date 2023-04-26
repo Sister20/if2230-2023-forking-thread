@@ -12,6 +12,8 @@
 
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
+#define EMPTY_EXTENSION "\0\0\0"
+#define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -201,7 +203,11 @@ int split_filename_extension(char *filename, int filename_length,
     // copy name
     memcpy(name->word, filename, name_length);
     name->length = name_length;
+    memcpy(name->word, filename, name_length);
+    name->length = name_length;
     // copy extension
+    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    extension->length = last_word_length;
     memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
     extension->length = last_word_length;
     return 0;
@@ -716,7 +722,10 @@ int main(void)
 
             if (commandNumber == 1)
             {
-                ls_command(current_directory_info);
+                if (argsCount == 1)
+                    ls_command(current_directory_info);
+                else
+                    syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 2)
