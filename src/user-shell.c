@@ -139,6 +139,44 @@ int get_words_count(struct IndexInfo *indexes)
     return count;
 }
 
+/**
+ * Split filename into name and extension
+ * @param filename original filename before split
+ * @param filename_length length of filename
+ * @param name final filename length after removed of extension
+ * @param extension extension of the file
+ * @return
+ * 0 - if successfully split with filename not empty and extension not empty,
+ * 1 - if file does not have extension,
+ * 2 - if file has no name
+ * 3 - if file name or extension is too long
+*/
+int split_filename_extension(char *filename, int filename_length, char *name, char *extension)
+{
+    // parse filename to name and extension
+    struct IndexInfo temp_index[INDEXES_MAX_COUNT];
+    get_buffer_indexes(filename, temp_index, '.', 0, filename_length);
+
+    int words_count = get_words_count(temp_index);
+
+    if(words_count == 1) {
+        if(temp_index[0].index == 0) return 1;  // filename has no extension
+        if(temp_index[0].index > 0) return 2;   // file has no name (why?)
+    }
+
+    int last_word_starting_index = temp_index[words_count-1].index;
+    int last_word_length = temp_index[words_count-1].length
+    // starting from 0 to (last_word_starting_index - 2) is file name
+    int name_length = last_word_starting_index - 1; // therefore (last_word_starting_index - 2) + 1 is length of name
+    
+    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3
+    // copy name
+    memcpy(name, filename, name_length);
+    // copy extension
+    memcpy(extension, &filename[last_word_starting_index], last_word_length);
+    return 0;
+}
+
 void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
     if (get_words_count(indexes) != 2)
