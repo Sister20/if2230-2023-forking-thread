@@ -185,7 +185,7 @@ void set_ParseString(struct ParseString *parse_string, char *str, int size) {
  * 2 - if file has no name
  * 3 - if file name or extension is too long
 */
-int split_filename_extension(const struct ParseString *filename,
+int split_filename_extension(struct ParseString *filename,
                             struct ParseString *name,
                             struct ParseString *extension)
 {
@@ -674,9 +674,9 @@ void print_path(uint32_t cluster_number)
 }
 
 void cp_command(struct CurrentDirectoryInfo source_dir,
-                const struct ParseString *source_name,
+                struct ParseString *source_name,
                 struct CurrentDirectoryInfo dest_dir,
-                const struct ParseString *dest_name) {
+                struct ParseString *dest_name) {
     // prepare buffer in memory for copying
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
 
@@ -689,7 +689,8 @@ void cp_command(struct CurrentDirectoryInfo source_dir,
     // split source filename to name and extension
     splitcode = split_filename_extension(source_name, &name, &ext);
     if(splitcode == 2 || splitcode == 3){
-        syscall(5, "Source file not found!\n", 19, 0xF);
+        char msg[] = "Source file not found!\n";
+        syscall(5, (uint32_t) msg, 19, 0xF);
         return;
     }
 
@@ -716,7 +717,8 @@ void cp_command(struct CurrentDirectoryInfo source_dir,
         // split source filename to name and extension
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if(splitcode == 2 || splitcode == 3){
-            syscall(5, "Source file not found!\n", 19, 0xF);
+            char msg[] = "Source file not found!\n";
+            syscall(5, (uint32_t) msg, 19, 0xF);
             return;
         }
 
@@ -743,7 +745,7 @@ void cp_command(struct CurrentDirectoryInfo source_dir,
     }
 }
 
-void rm_command(struct CurrentDirectoryInfo file_dir, const struct ParseString *file_name) {
+void rm_command(struct CurrentDirectoryInfo file_dir, struct ParseString *file_name) {
     struct ParseString name;
     struct ParseString ext;
     int splitcode;
@@ -751,7 +753,8 @@ void rm_command(struct CurrentDirectoryInfo file_dir, const struct ParseString *
     // split source filename to name and extension
     splitcode = split_filename_extension(file_name, &name, &ext);
     if(splitcode == 2 || splitcode == 3){
-        syscall(5, "Source file not found!\n", 19, 0xF);
+        char msg[] = "Source file not found!\n";
+        syscall(5, (uint32_t) msg, 19, 0xF);
         return;
     }
 
@@ -769,9 +772,9 @@ void rm_command(struct CurrentDirectoryInfo file_dir, const struct ParseString *
 }
 
 void mv_command(struct CurrentDirectoryInfo source_dir,
-                const struct ParseString *source_name,
+                struct ParseString *source_name,
                 struct CurrentDirectoryInfo dest_dir,
-                const struct ParseString *dest_name) {
+                struct ParseString *dest_name) {
     cp_command(source_dir,
                 source_name,
                 dest_dir,
@@ -780,9 +783,6 @@ void mv_command(struct CurrentDirectoryInfo source_dir,
     rm_command(source_dir, source_name);
 }
 
-void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
-{
-}
 
 int main(void)
 {
