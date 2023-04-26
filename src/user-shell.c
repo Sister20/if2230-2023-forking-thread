@@ -149,7 +149,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
     int i = 0;
 
-    if (buf[indexes[1].index] == '/' || buf[indexes[1].index] == '.')
+    if (buf[indexes[1].index] == '/')
     {
         info->current_cluster_number = ROOT_CLUSTER_NUMBER;
         info->current_path_count = 0;
