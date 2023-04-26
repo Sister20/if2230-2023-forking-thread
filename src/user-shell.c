@@ -10,6 +10,8 @@
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
 
+#define EMPTY_EXTENSION "\0\0\0"
+#define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -43,6 +45,11 @@ struct IndexInfo defaultIndexInfo = {
     .index = -1,
     .length = 0,
 };
+
+struct ParseString {
+    char *word;
+    int length;
+} __attribute__((packed));
 
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
@@ -165,7 +172,9 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
  * 2 - if file has no name
  * 3 - if file name or extension is too long
 */
-int split_filename_extension(char *filename, int filename_length, char *name, char *extension)
+int split_filename_extension(char *filename, int filename_length,
+                            struct ParseString *name,
+                            struct ParseString *extension)
 {
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
@@ -185,9 +194,11 @@ int split_filename_extension(char *filename, int filename_length, char *name, ch
     
     if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3;
     // copy name
-    memcpy(name, filename, name_length);
+    memcpy(name->word, filename, name_length);
+    name->length = name_length;
     // copy extension
-    memcpy(extension, &filename[last_word_starting_index], last_word_length);
+    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    extension->length = last_word_length;
     return 0;
 }
 
