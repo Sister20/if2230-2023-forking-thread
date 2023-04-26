@@ -70,6 +70,12 @@ void reset_indexes(struct IndexInfo *indexes)
     }
 }
 
+void reset_buffer(char* buf, int length)
+{   
+    for (int i = 0; i < length; i++) buf[i] = '\0';
+}
+
+
 void get_buffer_indexes(char *buf, struct IndexInfo *indexes, char delimiter, int starting_index, int buffer_length)
 {
 
@@ -242,7 +248,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     }
 }
 
-void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo info)
+void ls_command(struct CurrentDirectoryInfo info)
 {
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest request = {
@@ -252,7 +258,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    memcpy(request.name, info.paths[current_cluster_number - 1], DIRECTORY_NAME_LENGTH);
+    memcpy(request.name, info.paths[info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
 
     int32_t retcode;
 
@@ -270,7 +276,7 @@ void ls_command(uint16_t current_cluster_number, struct CurrentDirectoryInfo inf
             int j = 1;
             while (j < dirTable[i].table->n_of_entries)
             {
-                // TODO : output nama file/dir
+                syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, 0xF);
                 j++;
             }
 
@@ -368,7 +374,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
 int main(void)
 {
-
+    const int DIRECTORY_DISPLAY_OFFSET = 23;
     char buf[SHELL_BUFFER_SIZE];
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
 
@@ -377,18 +383,94 @@ int main(void)
             .current_cluster_number = ROOT_CLUSTER_NUMBER,
             .current_path_count = 0,
         };
+
     
     // fungsi atas-atas belum fix :D
 
     while (TRUE)
     {
-
+        reset_buffer(buf, SHELL_BUFFER_SIZE);
         reset_indexes(word_indexes);
+
+        const int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + current_directory_info.current_path_count * DIRECTORY_NAME_LENGTH + 1;
+
+        char directoryDisplay [DIRECTORY_DISPLAY_LENGTH];
+        
+        memcpy(directoryDisplay, "forking-thread-IF2230:", DIRECTORY_DISPLAY_OFFSET);
+
+        for (int i = 0; i < current_directory_info.current_path_count; i++)
+        {
+            memcpy(directoryDisplay + (i * DIRECTORY_NAME_LENGTH) + DIRECTORY_DISPLAY_OFFSET, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
+        }
+
+        memcpy(directoryDisplay + DIRECTORY_DISPLAY_LENGTH-1, "$", 1);
+
+        syscall(5, (uint32_t)directoryDisplay, DIRECTORY_DISPLAY_LENGTH, 0xF);
+
+        syscall(4, (uint32_t)buf, SHELL_BUFFER_SIZE, 0);
+        syscall(5, (uint32_t)buf, SHELL_BUFFER_SIZE, 0xF);
+
+        get_buffer_indexes(buf, word_indexes, ' ', 0, SHELL_BUFFER_SIZE);
+
+        int commandNumber = get_command_number(buf, word_indexes[0].index, word_indexes[0].length);
+
+        if (commandNumber == -1)
+        {
+            syscall(5, "Command not found!\n", 19, 0xF);
+        }
+
+        else
+        {
+            if (commandNumber == 0)
+            {
+                cd_command(buf, word_indexes, &current_directory_info);
+            }
+
+            if (commandNumber == 1)
+            {
+                ls_command(current_directory_info);
+            }
+
+            if (commandNumber == 2)
+            {
+                
+            }
+
+            if (commandNumber == 3)
+            {
+
+            }
+
+            if (commandNumber == 4)
+            {
+                
+            }
+
+            if (commandNumber == 5)
+            {
+                
+            }
+
+            if (commandNumber == 6)
+            {
+
+            }
+
+            if (commandNumber == 7)
+            {
+                
+            }
+
+            if (commandNumber == 8)
+            {
+                
+            }
+        }
+
         if (current_directory_info.current_cluster_number)
         {
+
         }
-        syscall(4, (uint32_t)buf, SHELL_BUFFER_SIZE, 0);
-        syscall(5, (uint32_t)buf, SHELL_BUFFER_SIZE, 0xF); // syscall ini belum implement fungsi put
     }
 
     return 0;
