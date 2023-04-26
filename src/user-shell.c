@@ -694,7 +694,6 @@ int main(void)
         syscall(5, (uint32_t)directoryDisplay, DIRECTORY_DISPLAY_LENGTH, 0xF);
 
         syscall(4, (uint32_t)buf, SHELL_BUFFER_SIZE, 0);
-        syscall(5, (uint32_t)buf, SHELL_BUFFER_SIZE, 0xF);
 
         get_buffer_indexes(buf, word_indexes, ' ', 0, SHELL_BUFFER_SIZE);
 
