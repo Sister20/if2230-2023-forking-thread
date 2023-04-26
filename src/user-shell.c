@@ -10,6 +10,8 @@
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
 
+#define EMPTY_EXTENSION "\0\0\0"
+#define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -43,6 +45,11 @@ struct IndexInfo defaultIndexInfo = {
     .index = -1,
     .length = 0,
 };
+
+struct ParseString {
+    char *word;
+    int length;
+} __attribute__((packed));
 
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
@@ -164,7 +171,9 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
  * 2 - if file has no name
  * 3 - if file name or extension is too long
 */
-int split_filename_extension(char *filename, int filename_length, char *name, char *extension)
+int split_filename_extension(char *filename, int filename_length,
+                            struct ParseString *name,
+                            struct ParseString *extension)
 {
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
@@ -178,15 +187,17 @@ int split_filename_extension(char *filename, int filename_length, char *name, ch
     }
 
     int last_word_starting_index = temp_index[words_count-1].index;
-    int last_word_length = temp_index[words_count-1].length
+    int last_word_length = temp_index[words_count-1].length;
     // starting from 0 to (last_word_starting_index - 2) is file name
     int name_length = last_word_starting_index - 1; // therefore (last_word_starting_index - 2) + 1 is length of name
     
-    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3
+    if(name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3) return 3;
     // copy name
-    memcpy(name, filename, name_length);
+    memcpy(name->word, filename, name_length);
+    name->length = name_length;
     // copy extension
-    memcpy(extension, &filename[last_word_starting_index], last_word_length);
+    memcpy(extension->word, &filename[last_word_starting_index], last_word_length);
+    extension->length = last_word_length;
     return 0;
 }
 
@@ -610,6 +621,90 @@ void print_path(uint32_t cluster_number)
         syscall(5, (uint32_t)dir_table->table->name, SHELL_BUFFER_SIZE, 0xF);
     }
 }
+
+void cp_command(struct CurrentDirectoryInfo source_dir,
+                char *source_name, int source_name_length,
+                struct CurrentDirectoryInfo dest_dir,
+                char *dest_name, int dest_name_length) {
+
+    // prepare buffer in memory for copying
+    struct ClusterBuffer cl[256];
+
+    /* COPYING STAGE */
+
+    // filename contains dot (".", but not extension delimiter)
+    if(get_words_count(temp_index) > 2) {
+        syscall(5, "File name error!\n", 19, 0xF);
+        return;
+    }
+
+    // prepare read file request
+    struct FAT32DriverRequest read_request = {
+        .buf = &cl,
+        // .name,
+        .ext = EMPTY_EXTENSION,
+        .parent_cluster_number = source_dir.current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * 256,
+    };
+    memcpy(read_request.name, source_name, temp_index[0].length);
+
+    // get destination extension
+    if(temp_index[1].length > 0){
+        char *extension = &source_name[temp_index[1].index];
+        memcpy(read_request.ext, extension, temp_index[1].length);
+    }
+
+    // copy file to buffer memory
+    int32_t retcode;
+
+    syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
+    
+    if (retcode == 0)
+    {
+        // read file to buffer success
+        /* COPYING STAGE */
+        // parse filename to name and extension
+        struct IndexInfo temp_index[2];
+        get_buffer_indexes(dest_name, temp_index, '.', 0, dest_name_length);
+
+        // get destination extension
+        extension = &dest_name[temp_index[1].index];
+
+        // prepare read file request
+        struct FAT32DriverRequest read_request = {
+            .buf = &cl,
+            // .name,
+            // .ext,
+            .parent_cluster_number = source_dir.current_cluster_number,
+            .buffer_size = CLUSTER_SIZE * 256,
+        };
+        memcpy(read_request.name, source_name, temp_index[0].length);
+        memcpy(read_request.ext, extension, temp_index[1].length);
+
+        // copy file to buffer memory
+        int32_t retcode;
+
+        syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
+    }
+    else
+    {
+        // try read folder
+    }
+}
+
+void rm_command(struct CurrentDirectoryInfo current_dir, char *filename) {
+    struct FAT32DriverRequest delete_request = {
+        .ext = EMPTY_EXTENSION,
+        .parent_cluster_number = current_dir.current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * 5,
+    };
+}
+
+void mv_command(struct CurrentDirectoryInfo currentDir, struct) {
+    cp_command(currentDir);
+
+}
+
 
 void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
