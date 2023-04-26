@@ -72,22 +72,9 @@ struct TSSEntry _interrupt_tss_entry = {
     .ss0 = GDT_KERNEL_DATA_SEGMENT_SELECTOR,
 };
 
-void main_interrupt_handler(struct CPURegister cpu, uint32_t int_number, struct InterruptStack info)
-{
-    switch (int_number)
-    {
-    case PIC1_OFFSET + IRQ_KEYBOARD:
-        keyboard_isr();
-        break;
-    case 0x30:
-        syscall(cpu, info);
-        break;
-    }
-}
-
 void puts(char *buf, uint32_t length, uint8_t color)
 {
-    int counter = 0;
+    uint32_t counter = 0;
 
     while (counter < length)
     {
@@ -114,7 +101,7 @@ void puts(char *buf, uint32_t length, uint8_t color)
 
         else if (buf[counter] != '\0')
         {
-            framebuffer_write(row, col, buf[counter], 0xF, 0);
+            framebuffer_write(row, col, buf[counter], color, 0);
             // Handle wrapping behaviour
             if (col < 79)
             {
@@ -192,5 +179,18 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
             // buffer size too small
             *((int8_t *)cpu.ecx) = 1;
         }
+    }
+}
+
+void main_interrupt_handler(struct CPURegister cpu, uint32_t int_number, struct InterruptStack info)
+{
+    switch (int_number)
+    {
+    case PIC1_OFFSET + IRQ_KEYBOARD:
+        keyboard_isr();
+        break;
+    case 0x30:
+        syscall(cpu, info);
+        break;
     }
 }
