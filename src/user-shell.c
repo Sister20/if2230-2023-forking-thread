@@ -72,7 +72,8 @@ void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 
 void print_newline()
 {
-    syscall(5, "\n", 1, 0xF);
+    char newl[1] = "\n";
+    syscall(5, (uint32_t) newl, 1, 0xF);
 }
 
 void reset_indexes(struct IndexInfo *indexes)
@@ -156,7 +157,7 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
 {
     dest->current_cluster_number = source->current_cluster_number;
     dest->current_path_count = source->current_path_count,
-    memcpy(dest->paths, source->paths, PATH_MAX_COUNT);
+    memcpy(dest->paths, source->paths, PATH_MAX_COUNT * DIRECTORY_NAME_LENGTH);
 }
 
 /**
@@ -257,8 +258,9 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         {
             if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
             {
-                syscall(5, "Directory name is too long: ", 29, 0xF);
-                syscall(5, buf + param_indexes[i].index, param_indexes[i].length, 0xF);
+                char msg[] = "Directory name is too long: ";
+                syscall(5, (uint32_t) msg, 29, 0xF);
+                syscall(5,(uint32_t) buf + param_indexes[i].index, param_indexes[i].length, 0xF);
                 print_newline();
 
                 return;
@@ -285,15 +287,24 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
             if (retcode != 0)
-            {
-                syscall(5, "Failed to read directory: ", 27, 0xF);
-                syscall(5, request.name, DIRECTORY_NAME_LENGTH, 0xF);
+            {   
+                char msg[] = "Failed to read directory: ";
+                syscall(5, (uint32_t) msg, 27, 0xF);
+                syscall(5, (uint32_t) request.name, DIRECTORY_NAME_LENGTH, 0xF);
                 print_newline();
 
                 if (retcode == 1)
-                    syscall(5, "Error: not a folder\n", 21, 0xF);
+                {
+                    char errorMsg[] = "Error: not a folder\n";
+                    syscall(5, (uint32_t)errorMsg, 21, 0xF);
+                }
+            
                 else if (retcode == 2)
-                    syscall(5, "Error: directory not found\n", 21, 0xF);
+                {
+                    char errorMsg[] = "Error: directory not found\n";
+                    syscall(5, (uint32_t) errorMsg, 21, 0xF);
+                }
+
                 return;
             }
 
@@ -402,7 +413,9 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     if (new_path_indexes[i].length > 8)
     {
-        syscall(5, (uint32_t) "Invalid new directory name! Maximum 7 characters!", SHELL_BUFFER_SIZE, 0xF);
+        char msg[] = "Invalid new directory name! Maximum 7 characters!";
+
+        syscall(5, (uint32_t) msg, SHELL_BUFFER_SIZE, 0xF);
         return;
     }
 
@@ -491,12 +504,9 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
-    struct CurrentDirectoryInfo target_directory = {
-        .current_cluster_number = info->current_cluster_number,
-        .current_path_count = info->current_path_count,
-    };
+    struct CurrentDirectoryInfo target_directory = {};
 
-    memcpy(target_directory.paths, info->paths, sizeof(info->paths));
+    copy_directory_info(&target_directory, info);
 
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
@@ -622,93 +632,6 @@ void print_path(uint32_t cluster_number)
     }
 }
 
-void cp_command(struct CurrentDirectoryInfo source_dir,
-                char *source_name, int source_name_length,
-                struct CurrentDirectoryInfo dest_dir,
-                char *dest_name, int dest_name_length) {
-
-    // prepare buffer in memory for copying
-    struct ClusterBuffer cl[256];
-
-    /* COPYING STAGE */
-
-    // filename contains dot (".", but not extension delimiter)
-    if(get_words_count(temp_index) > 2) {
-        syscall(5, "File name error!\n", 19, 0xF);
-        return;
-    }
-
-    // prepare read file request
-    struct FAT32DriverRequest read_request = {
-        .buf = &cl,
-        // .name,
-        .ext = EMPTY_EXTENSION,
-        .parent_cluster_number = source_dir.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 256,
-    };
-    memcpy(read_request.name, source_name, temp_index[0].length);
-
-    // get destination extension
-    if(temp_index[1].length > 0){
-        char *extension = &source_name[temp_index[1].index];
-        memcpy(read_request.ext, extension, temp_index[1].length);
-    }
-
-    // copy file to buffer memory
-    int32_t retcode;
-
-    syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
-    
-    if (retcode == 0)
-    {
-        // read file to buffer success
-        /* COPYING STAGE */
-        // parse filename to name and extension
-        struct IndexInfo temp_index[2];
-        get_buffer_indexes(dest_name, temp_index, '.', 0, dest_name_length);
-
-        // get destination extension
-        extension = &dest_name[temp_index[1].index];
-
-        // prepare read file request
-        struct FAT32DriverRequest read_request = {
-            .buf = &cl,
-            // .name,
-            // .ext,
-            .parent_cluster_number = source_dir.current_cluster_number,
-            .buffer_size = CLUSTER_SIZE * 256,
-        };
-        memcpy(read_request.name, source_name, temp_index[0].length);
-        memcpy(read_request.ext, extension, temp_index[1].length);
-
-        // copy file to buffer memory
-        int32_t retcode;
-
-        syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
-    }
-    else
-    {
-        // try read folder
-    }
-}
-
-void rm_command(struct CurrentDirectoryInfo current_dir, char *filename) {
-    struct FAT32DriverRequest delete_request = {
-        .ext = EMPTY_EXTENSION,
-        .parent_cluster_number = current_dir.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
-    };
-}
-
-void mv_command(struct CurrentDirectoryInfo currentDir, struct) {
-    cp_command(currentDir);
-
-}
-
-
-void recursive_rm_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
-{
-}
 
 int main(void)
 {
@@ -737,7 +660,7 @@ int main(void)
 
         memcpy(directoryDisplay, "forking-thread-IF2230:", DIRECTORY_DISPLAY_OFFSET);
 
-        for (int i = 0; i < current_directory_info.current_path_count; i++)
+        for (uint32_t i = 0; i < current_directory_info.current_path_count; i++)
         {
             memcpy(directoryDisplay + (i * DIRECTORY_NAME_LENGTH) + DIRECTORY_DISPLAY_OFFSET, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
         }
@@ -755,7 +678,8 @@ int main(void)
 
         if (commandNumber == -1)
         {
-            syscall(5, "Command not found!\n", 19, 0xF);
+            char msg[] = "Command not found!\n";
+            syscall(5, (uint32_t) msg, 19, 0xF);
         }
 
         else
@@ -769,7 +693,7 @@ int main(void)
                 else if (argsCount == 2)
                     cd_command(buf, word_indexes + 1, &current_directory_info);
                 else
-                    syscall(5, too_many_args_msg, 20, 0xF);
+                    syscall(5, (uint32_t) too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 1)
