@@ -785,8 +785,6 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req) {
 
   read_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
 
-  bool is_creating_directory = req.buffer_size == 0;
-
   // Iterate through the directory entries and find the same folder/file. Return
   // early if file with the same name already exist.
   bool same_entry = FALSE;
