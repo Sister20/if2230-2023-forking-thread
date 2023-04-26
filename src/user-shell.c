@@ -413,16 +413,63 @@ void ls_command(struct CurrentDirectoryInfo info)
 /**
  * Parse raw path to become useable for cd command
  *
+ * @param buf              input command buffer
  * @param indexes          initial IndexInfo struct that contains the raw path at index 1
  * @param new_path_indexes new path after parsing
  *
  * @return -
  */
-void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
+void parse_new_path_indexes(char *buf, struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
 {
     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
     get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
+}
+
+/**
+ * Invoking cd command from another command
+ *
+ * @param buf               input command buffer
+ * @param target_buf_length initial target buf length. Example for cat, target_buf_length = length of "cat" + 1 = 4
+ * @param new_path_indexes  new path after invoking parse_new_path_indexes
+ * @param indexes           initial IndexInfo struct that contains the raw path at index 1
+ * @param target_directory  new directory info after invoking cd command
+ * @param target_name       parsed target name from buffer
+ *
+ * @return -
+ */
+void invoke_cd(char *buf,
+               int target_buf_length,
+               struct IndexInfo *new_path_indexes,
+               struct IndexInfo *indexes,
+               struct CurrentDirectoryInfo *target_directory,
+               char *target_name)
+{
+    int i = 0;
+    while (!is_default_index(new_path_indexes[i + 1]))
+    {
+        target_buf_length += new_path_indexes[i].length;
+        i++;
+    }
+
+    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
+    {
+        target_name[j - target_buf_length] = buf[j];
+    }
+
+    // check if path_segment count > 1
+    if (!is_default_index(new_path_indexes[1]))
+    {
+        char target_buff[target_buf_length];
+        for (int i = 0; i < target_buf_length; i++)
+        {
+            target_buff[i] = buf[i];
+        }
+        // call cd command to move the directory
+        cd_command(target_buff, new_path_indexes, target_directory);
+
+        // TODO: handle failed cd
+    }
 }
 
 /**
@@ -447,46 +494,22 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
     parse_path_for_cd(buf, indexes, new_path_indexes);
 
-    int i = 0;
-    int target_buf_length = 6; // "cd    "
-    while (!is_default_index(new_path_indexes[i + 1]))
+    int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
+    if (target_name_length > 8)
     {
-        target_buf_length += new_path_indexes[i].length;
-        i++;
-    }
+        char msg[] = "Invalid new directory name! Maximum 8 characters!";
 
-    if (new_path_indexes[i].length > 8)
-    {
-        char msg[] = "Invalid new directory name! Maximum 7 characters!\n";
-
-        syscall(5, (uint32_t)msg, 50, 0xF);
+        syscall(5, (uint32_t)msg, 49, 0xF);
+        print_newline();
         return;
-    }
-
-    char new_dir_name[new_path_indexes[i].length];
-    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
-    {
-        new_dir_name[j - target_buf_length] = buf[j];
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
     struct CurrentDirectoryInfo target_directory = {};
-
     copy_directory_info(&target_directory, info);
+    char target_name[target_name_length];
 
-    // check if path_segment count > 1
-    if (!is_default_index(new_path_indexes[1]))
-    {
-        char target_buff[target_buf_length];
-        for (int i = 0; i < target_buf_length; i++)
-        {
-            target_buff[i] = buf[i];
-        }
-        // call cd command to move the directory
-        cd_command(target_buff, indexes + 1, &target_directory);
-
-        // TODO: handle failed cd
-    }
+    invoke_cd(buf, 6, new_path_indexes, indexes, &target_directory, target_name);
 
     // create new directory in the target_directory
     struct ClusterBuffer cl[5];
@@ -497,7 +520,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    memcpy(write_request.name, new_dir_name, sizeof(new_dir_name));
+    memcpy(write_request.name, target_name, target_name_length);
 
     int32_t retcode;
 
@@ -528,39 +551,13 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
     parse_path_for_cd(buf, indexes, new_path_indexes);
 
-    int i = 0;
-    int target_buf_length = 4; // "cd  "
-    while (!is_default_index(new_path_indexes[i + 1]))
-    {
-        target_buf_length += new_path_indexes[i].length;
-        i++;
-    }
-
-    int target_file_name_length = new_path_indexes[i].length;
-    char target_file_name[target_file_name_length];
-    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
-    {
-        target_file_name[j - target_buf_length] = buf[j];
-    }
-
     // temporary CurrentDirectoryInfo for creating the new directory
     struct CurrentDirectoryInfo target_directory = {};
-
     copy_directory_info(&target_directory, info);
+    int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
+    char target_name[target_name_length];
 
-    // check if path_segment count > 1
-    if (!is_default_index(new_path_indexes[1]))
-    {
-        char target_buff[target_buf_length];
-        for (int i = 0; i < target_buf_length; i++)
-        {
-            target_buff[i] = buf[i];
-        }
-        // call cd command to move the directory
-        cd_command(target_buff, indexes + 1, &target_directory);
-
-        // TODO: handle failed cd
-    }
+    invoke_cd(buf, 6, new_path_indexes, indexes, &target_directory, target_name);
 
     // read the file from FATtable
     struct ClusterBuffer cl[5];
@@ -571,12 +568,12 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     };
 
     struct ParseString target_filename = {};
-    set_ParseString(&target_filename, target_file_name, target_file_name_length);
+    set_ParseString(&target_filename, target_name, target_name_length);
     struct ParseString target_file_name_parsed = {};
     struct ParseString target_file_name_extension = {};
     int split_result = split_filename_extension(&target_filename, &target_file_name_parsed, &target_file_name_extension);
 
-    memcpy(read_request.name, target_file_name, sizeof(target_file_name));
+    memcpy(read_request.name, target_name, target_name_length);
     if (split_result != 0 && split_result != 1)
     {
         syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
@@ -825,9 +822,10 @@ int main(void)
         reset_buffer(buf, SHELL_BUFFER_SIZE);
         reset_indexes(word_indexes, INDEXES_MAX_COUNT);
 
-        int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + (current_directory_info.current_path_count * (DIRECTORY_NAME_LENGTH+1));
+        int DIRECTORY_DISPLAY_LENGTH = DIRECTORY_DISPLAY_OFFSET + (current_directory_info.current_path_count * (DIRECTORY_NAME_LENGTH + 1));
 
-        if (current_directory_info.current_path_count == 0) DIRECTORY_DISPLAY_LENGTH++;
+        if (current_directory_info.current_path_count == 0)
+            DIRECTORY_DISPLAY_LENGTH++;
 
         char directoryDisplay[DIRECTORY_DISPLAY_LENGTH];
 
@@ -838,7 +836,8 @@ int main(void)
         for (uint32_t i = 0; i < current_directory_info.current_path_count; i++)
         {
             int offset = (i * (DIRECTORY_NAME_LENGTH + 1)) + DIRECTORY_DISPLAY_OFFSET;
-            if (i > 0) memcpy(directoryDisplay + offset - 1, slash, 1);
+            if (i > 0)
+                memcpy(directoryDisplay + offset - 1, slash, 1);
             memcpy(directoryDisplay + offset, current_directory_info.paths[i], DIRECTORY_NAME_LENGTH);
         }
 
@@ -916,7 +915,6 @@ int main(void)
             {
             }
         }
-
     }
 
     return 0;
