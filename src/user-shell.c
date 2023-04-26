@@ -9,6 +9,7 @@
 #define DIRECTORY_NAME_LENGTH 8
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
+
 const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "cd\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "ls\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -141,12 +142,6 @@ int get_words_count(struct IndexInfo *indexes)
 
 void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
 {
-    if (get_words_count(indexes) != 2)
-    {
-        // tulis parameter cd tidak valid
-        return;
-    }
-
     struct IndexInfo param_indexes[INDEXES_MAX_COUNT];
     reset_indexes(param_indexes);
 
@@ -154,13 +149,13 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
     int i = 0;
 
-    if (buf[indexes[1].index] == '/')
+    if (buf[indexes[1].index] == '/' || buf[indexes[1].index] == '.')
     {
         info->current_cluster_number = ROOT_CLUSTER_NUMBER;
         info->current_path_count = 0;
     }
 
-    while (i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
+    while ((uint32_t) indexes != 0 && i < INDEXES_MAX_COUNT && !is_default_index(param_indexes[i]))
     {
 
         if (param_indexes[i].length == 1 && buf[param_indexes[i].index] == '.')
@@ -345,7 +340,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
             target_buff[i] = buf[i];
         }
         // call cd command to move the directory
-        cd_command(target_buff, new_indexes, &target_directory); 
+        cd_command(target_buff, new_indexes+1, &target_directory); 
     }
 
     // create new directory in the target_directory
@@ -377,6 +372,8 @@ int main(void)
     const int DIRECTORY_DISPLAY_OFFSET = 23;
     char buf[SHELL_BUFFER_SIZE];
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
+
+    char too_many_args_msg[] = "Too many arguments\n"; 
 
     struct CurrentDirectoryInfo current_directory_info =
         {
@@ -421,9 +418,13 @@ int main(void)
 
         else
         {
+            int argsCount = get_words_count(word_indexes);
+
             if (commandNumber == 0)
             {
-                cd_command(buf, word_indexes, &current_directory_info);
+                if (argsCount == 1) cd_command(buf, (uint32_t) 0, &current_directory_info);
+                else if (argsCount == 2) cd_command(buf, word_indexes + 1, &current_directory_info);
+                else syscall(5, too_many_args_msg, 20, 0xF);
             }
 
             if (commandNumber == 1)

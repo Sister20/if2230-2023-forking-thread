@@ -152,6 +152,17 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
     // read parent directory table only with its cluster number
     else if (cpu.eax == 6) {
         struct FAT32DriverRequest request = *(struct FAT32DriverRequest*) cpu.ebx;
-        read_clusters(request.buf, request.parent_cluster_number, 1);
+
+        if (request.buffer_size >= CLUSTER_SIZE)
+        {
+            read_clusters(request.buf, request.parent_cluster_number, 1);
+            *((int8_t*) cpu.ecx) = 0;
+        }
+
+        else
+        {
+            // buffer size too small
+            *((int8_t*) cpu.ecx) = 1;
+        }
     }
 }
