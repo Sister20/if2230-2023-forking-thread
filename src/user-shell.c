@@ -183,8 +183,16 @@ int split_filename_extension(char *filename, int filename_length,
     int words_count = get_words_count(temp_index);
 
     if(words_count == 1) {
-        if(temp_index[0].index == 0) return 1;  // filename has no extension
-        if(temp_index[0].index > 0) return 2;   // file has no name (why?)
+        // filename has no extension
+        if(temp_index[0].index == 0) {
+            if(temp_index[0].length > DIRECTORY_NAME_LENGTH) return 3;
+            // copy name
+            memcpy(name->word, filename, temp_index[0].length);
+            name->length = name_length;
+            return 1;
+        }
+        // file has no name (why?)
+        return 2;
     }
 
     int last_word_starting_index = temp_index[words_count-1].index;
