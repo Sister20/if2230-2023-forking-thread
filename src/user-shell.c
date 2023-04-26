@@ -208,7 +208,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
             int32_t retcode;
 
-            syscall(0, (uint32_t)&request, (uint32_t)&retcode, 0);
+            syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
             dir_table = request.buf;
             uint32_t j = 0;
