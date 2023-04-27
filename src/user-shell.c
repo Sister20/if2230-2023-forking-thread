@@ -79,6 +79,12 @@ void print_newline()
     syscall(5, (uint32_t)newl, 1, 0xF);
 }
 
+void print_space()
+{
+    char newl[1] = " ";
+    syscall(5, (uint32_t)newl, 1, 0xF);
+}
+
 void reset_indexes(struct IndexInfo *indexes, uint32_t length)
 {
 
@@ -298,19 +304,24 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
-                    .name = "\0\0\0\0\0\0\0",
+                    .name = "root\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
                     .buffer_size = CLUSTER_SIZE * 5,
                 };
 
-                syscall(6, (uint32_t)&request, 0, 0);
+                struct FAT32DirectoryTable *dir_table;
 
-                struct FAT32DirectoryTable *dir_table = request.buf;
+                if (temp_info.current_path_count > 0)
+                {
+                    syscall(6, (uint32_t)&request, 0, 0);
 
-                memcpy(request.name, buf + param_indexes[i].index, param_indexes[i].length);
+                    dir_table = request.buf;
 
-                request.parent_cluster_number = dir_table->table->cluster_low;
+                    memcpy(request.name, buf + param_indexes[i].index, param_indexes[i].length);
+
+                    request.parent_cluster_number = dir_table->table->cluster_low;
+                }
 
                 int32_t retcode;
 
@@ -378,12 +389,26 @@ void ls_command(struct CurrentDirectoryInfo info)
     struct ClusterBuffer cl[5];
     struct FAT32DriverRequest request = {
         .buf = &cl,
+        .name = "root\0\0\0\0",
         .ext = "\0\0\0",
         .parent_cluster_number = info.current_cluster_number,
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    memcpy(request.name, info.paths[info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
+    if (info.current_path_count > 0)
+    {
+        syscall(6, (uint32_t)&request, 0, 0);
+
+        struct FAT32DirectoryTable *dir_table = request.buf;
+
+        request.parent_cluster_number = dir_table->table->cluster_low;
+        memcpy(request.name, info.paths[info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
+    }
+
+    else
+    {
+        request.parent_cluster_number = ROOT_CLUSTER_NUMBER;
+    }
 
     int32_t retcode;
 
@@ -401,12 +426,19 @@ void ls_command(struct CurrentDirectoryInfo info)
             int j = 1;
             while (j < dirTable[i].table->n_of_entries)
             {
-                syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, 0xF);
+                uint32_t color;
+
+                if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY) color = 0xa;
+                else color = 0xf;
+                syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, color);
+                if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1) print_space();
                 j++;
             }
 
             i++;
         }
+        
+        print_newline();
     }
 }
 
