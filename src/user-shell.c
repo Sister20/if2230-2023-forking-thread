@@ -396,10 +396,6 @@ void ls_command(struct CurrentDirectoryInfo info)
         memcpy(request.name, info.paths[info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
     }
 
-    else
-    {
-        request.parent_cluster_number = ROOT_CLUSTER_NUMBER;
-    }
 
     int32_t retcode;
 
@@ -430,6 +426,13 @@ void ls_command(struct CurrentDirectoryInfo info)
         }
         
         print_newline();
+    }
+
+    else
+    {
+        char msg[] = "Failed to read current directory\n";
+        syscall(5, (uint32_t)msg, 34, 0xF);
+
     }
 }
 

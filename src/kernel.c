@@ -41,10 +41,23 @@ void kernel_setup(void) {
     write(req);
 
     // move parent to f1
-    // req.parent_cluster_number = 0x9;
+    req.parent_cluster_number = 0x9;
     
-    // memcpy(req.name, "f4", 2);
-    // write(req);
+    memcpy(req.name, "f4", 2);
+    write(req);
+
+    memcpy(req.name, "f5", 2);
+    write(req);
+
+    // move parent to f1
+    req.parent_cluster_number = 0xc;
+    
+    memcpy(req.name, "f6", 2);
+    write(req);
+
+    req.parent_cluster_number = 0xe;
+    memcpy(req.name, "f7", 2);
+    write(req);
 
     // Write shell into memory
     struct FAT32DriverRequest request = {

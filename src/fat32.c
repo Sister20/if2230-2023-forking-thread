@@ -552,6 +552,7 @@ void create_subdirectory_from_entry(uint32_t cluster_number,
   // Increment the number of entry in its targeted parent's directory table
   increment_subdir_n_of_entry(&(driver_state.dir_table_buf));
   memcpy(entry->name, req.name, 8);
+  memcpy(entry->ext, req.ext, 3);
   entry->filesize = req.buffer_size;
   entry->cluster_high = (uint16_t)cluster_number >> 16;
   entry->cluster_low = (uint16_t)cluster_number & 0x0000FFFF;
