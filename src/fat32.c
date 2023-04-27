@@ -204,7 +204,7 @@ int8_t read_directory(struct FAT32DriverRequest request) {
       entry = &(driver_state.dir_table_buf.table[i]);
 
       found_matching_file =
-          !is_entry_empty(entry) && is_dir_name_same(entry, request);
+          !is_entry_empty(entry) && is_dir_name_same(entry, request) && memcmp(entry->ext, "\0\0\0", 3) == 0;
       found_matching_directory = found_matching_file && is_subdirectory(entry);
     }
 
@@ -552,7 +552,7 @@ void create_subdirectory_from_entry(uint32_t cluster_number,
   // Increment the number of entry in its targeted parent's directory table
   increment_subdir_n_of_entry(&(driver_state.dir_table_buf));
   memcpy(entry->name, req.name, 8);
-  memcpy(entry->ext, req.ext, 3);
+  memcpy(entry->ext, "\0\0\0", 3);
   entry->filesize = req.buffer_size;
   entry->cluster_high = (uint16_t)cluster_number >> 16;
   entry->cluster_low = (uint16_t)cluster_number & 0x0000FFFF;
@@ -785,6 +785,8 @@ uint32_t get_n_of_cluster_subdir(struct FAT32DirectoryEntry *entry) {
 bool is_requested_directory_already_exist(struct FAT32DriverRequest req) {
 
   read_clusters(&driver_state.dir_table_buf, req.parent_cluster_number, 1);
+  // Determine whether we're creating a file or a folder
+  bool is_creating_directory = req.buffer_size == 0;
 
   // Iterate through the directory entries and find the same folder/file. Return
   // early if file with the same name already exist.
@@ -804,7 +806,8 @@ bool is_requested_directory_already_exist(struct FAT32DriverRequest req) {
 
       // Check if it's similar
 
-      same_entry = is_dir_ext_name_same(entry, req);
+      if(is_creating_directory) same_entry = is_dir_name_same(entry, req) && memcmp(entry->ext, "\0\0\0", 3) == 0;
+      else same_entry = is_dir_ext_name_same(entry, req);
       
       if (same_entry) {
         return TRUE;
