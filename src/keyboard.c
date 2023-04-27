@@ -34,11 +34,17 @@ static struct KeyboardDriverState keyboard_state = {
 
 // Activate keyboard ISR / start listen keyboard & save to buffer
 void keyboard_state_activate(void){
+    for (int i = 0; i < KEYBOARD_BUFFER_SIZE; i++)
+    {
+      keyboard_state.keyboard_buffer[i] = '\0';
+    }
+
     keyboard_state.keyboard_input_on = TRUE;
 }
 
 // Deactivate keyboard ISR / stop listening keyboard interrupt
 void keyboard_state_deactivate(void){
+
     keyboard_state.buffer_index = 0;
     keyboard_state.keyboard_input_on = FALSE;
 }

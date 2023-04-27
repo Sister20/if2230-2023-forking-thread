@@ -24,6 +24,28 @@ void kernel_setup(void) {
     // Allocate first 4 MiB virtual memory
     allocate_single_user_page_frame((uint8_t*) 0);
 
+    // Initiation for testing
+    struct FAT32DriverRequest req = {
+        .buf                   = (uint8_t*) 0,
+        .name                  = "f1\0\0\0\0\0\0",
+        .ext                   = "\0\0\0",
+        .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+        .buffer_size           = 0,
+    };
+    write(req);
+
+    memcpy(req.name, "f2", 2);
+    write(req);
+
+    memcpy(req.name, "f3", 2);
+    write(req);
+
+    // move parent to f1
+    // req.parent_cluster_number = 6;
+    
+    // memcpy(req.name, "f4", 2);
+    // write(req);
+
     // Write shell into memory
     struct FAT32DriverRequest request = {
         .buf                   = (uint8_t*) 0,
