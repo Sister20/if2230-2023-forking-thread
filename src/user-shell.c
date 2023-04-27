@@ -289,7 +289,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
                 }
             }
 
-            else
+            else if (!(temp_info.current_cluster_number == ROOT_CLUSTER_NUMBER && memcmp("root\0\0\0\0", buf + param_indexes[i].index, param_indexes[i].length) == 0))
             {
                 if (param_indexes[i].length > DIRECTORY_NAME_LENGTH)
                 {
@@ -318,7 +318,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                     dir_table = request.buf;
 
-                    memcpy(request.name, buf + param_indexes[i].index, param_indexes[i].length);
+                    memcpy(request.name, temp_info.paths[temp_info.current_path_count-1], DIRECTORY_NAME_LENGTH);
 
                     request.parent_cluster_number = dir_table->table->cluster_low;
                 }
@@ -327,35 +327,13 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                 syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
-                if (retcode != 0)
-                {
-                    char msg[] = "Failed to read directory: ";
-                    syscall(5, (uint32_t)msg, 27, 0xF);
-                    syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
-                    print_newline();
-
-                    if (retcode == 1)
-                    {
-                        char errorMsg[] = "Error: not a folder\n";
-                        syscall(5, (uint32_t)errorMsg, 21, 0xF);
-                    }
-
-                    else if (retcode == 2)
-                    {
-                        char errorMsg[] = "Error: directory not found\n";
-                        syscall(5, (uint32_t)errorMsg, 28, 0xF);
-                    }
-
-                    return;
-                }
-
                 dir_table = request.buf;
                 uint32_t j = 0;
                 bool found = FALSE;
 
                 while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
                 {
-                    int k = 0;
+                    int k = 1;
 
                     while (k < dir_table[j].table->n_of_entries && !found)
                     {
@@ -365,7 +343,7 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
                         {
                             temp_info.current_cluster_number = entry->cluster_low;
-                            memcpy(temp_info.paths[temp_info.current_path_count], request.name, DIRECTORY_NAME_LENGTH);
+                            memcpy(temp_info.paths[temp_info.current_path_count], buf + param_indexes[i].index, param_indexes[i].length);
                             temp_info.current_path_count++;
                             found = TRUE;
                         }
@@ -374,6 +352,19 @@ void cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
                     }
 
                     j++;
+                }
+
+                if (!found)
+                {
+                    char msg[] = "Failed to read directory ";
+                    syscall(5, (uint32_t)msg, 26, 0xF);
+                    syscall(5, (uint32_t)buf + param_indexes[i].index, param_indexes[i].length, 0xF);
+                    print_newline();
+
+                    char errorMsg[] = "Error: directory not found\n";
+                    syscall(5, (uint32_t)errorMsg, 28, 0xF);
+                    
+                    return;
                 }
             }
 
