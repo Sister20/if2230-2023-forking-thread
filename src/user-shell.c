@@ -7,6 +7,7 @@
 #define COMMAND_MAX_SIZE 32
 #define COMMAND_COUNT 12
 #define DIRECTORY_NAME_LENGTH 8
+#define EXTENSION_NAME_LENGTH 3
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 256
 #define MAX_FILE_BUFFER_CLUSTER_SIZE 512 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
@@ -174,7 +175,6 @@ void set_ParseString(struct ParseString *parse_string, char *str, int size)
 /**
  * Split filename into name and extension
  * @param filename original filename before split
- * @param filename_length length of filename
  * @param name final filename length after removed of extension
  * @param extension extension of the file
  * @return
@@ -217,7 +217,7 @@ int split_filename_extension(struct ParseString *filename,
     // starting from 0 to (last_word_starting_index - 2) is file name
     int name_length = last_word_starting_index - 1; // therefore (last_word_starting_index - 2) + 1 is length of name
 
-    if (name_length > DIRECTORY_NAME_LENGTH || last_word_length > 3)
+    if (name_length > DIRECTORY_NAME_LENGTH || last_word_length > EXTENSION_NAME_LENGTH)
         return 3;
     // copy name
     memcpy(name->word, filename->word, name_length);
