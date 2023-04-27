@@ -442,12 +442,13 @@ void ls_command(struct CurrentDirectoryInfo info)
  *
  * @return -
  */
-void parse_new_path_indexes(char *buf, struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
+void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *new_path_indexes)
 {
     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
     get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 }
+
 
 /**
  * Invoking cd command from another command
@@ -464,7 +465,6 @@ void parse_new_path_indexes(char *buf, struct IndexInfo *indexes, struct IndexIn
 void invoke_cd(char *buf,
                int target_buf_length,
                struct IndexInfo *new_path_indexes,
-               struct IndexInfo *indexes,
                struct CurrentDirectoryInfo *target_directory,
                char *target_name)
 {
@@ -532,7 +532,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     copy_directory_info(&target_directory, info);
     char target_name[target_name_length];
 
-    invoke_cd(buf, 6, new_path_indexes, indexes, &target_directory, target_name);
+    invoke_cd(buf, 6, new_path_indexes, &target_directory, target_name);
 
     // create new directory in the target_directory
     struct ClusterBuffer cl[5];
@@ -580,7 +580,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
     char target_name[target_name_length];
 
-    invoke_cd(buf, 6, new_path_indexes, indexes, &target_directory, target_name);
+    invoke_cd(buf, 6, new_path_indexes, &target_directory, target_name);
 
     // read the file from FATtable
     struct ClusterBuffer cl[5];
