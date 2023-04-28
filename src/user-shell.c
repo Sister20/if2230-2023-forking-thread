@@ -172,6 +172,12 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
     memcpy(dest->paths, source->paths, PATH_MAX_COUNT * DIRECTORY_NAME_LENGTH);
 }
 
+/**
+ * Set char buffer of ParseString data struct with input string with certain size
+ * @param parse_string  ParseString data to be filled with input string
+ * @param str           the string to be copied into parse_string
+ * @param size          the size of string to be copied into parse_string
+*/
 void set_ParseString(struct ParseString *parse_string, char *str, int size)
 {
     memcpy(parse_string->word, str, size);
@@ -480,22 +486,22 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
 /**
  * Invoking cd command from another command
  *
- * @param buf               input command buffer
- * @param new_path_indexes  new path after invoking parse_new_path_indexes
- * @param last_word_starting_index   initial target buf length. Example for cat, target_buf_length = length of "cat" + 1 = 4
- * @param target_directory  new directory info after invoking cd command
- * @param target_name       parsed target name from buffer
+ * @param buf                   input command buffer
+ * @param new_path_indexes      new path after invoking parse_new_path_indexes
+ * @param target_starting_index target starting index in buffer. Example for "cat f1/test.txt" -> starting index of "f1/test.txt" = 4
+ * @param target_directory      new directory info after invoking cd command
+ * @param target_name           parsed target name from buffer
  *
  * @return -
  */
 void invoke_cd(char *buf,
                struct IndexInfo *new_path_indexes,
-               int last_word_starting_index,
+               int target_starting_index,
                struct CurrentDirectoryInfo *target_directory,
                struct ParseString *target_name)
 {
     int last_word_index = get_words_count(new_path_indexes) - 1;
-    last_word_starting_index += new_path_indexes[last_word_index].index;
+    int last_word_starting_index = target_starting_index + new_path_indexes[last_word_index].index;
 
     for (int j = last_word_starting_index; j < last_word_starting_index + new_path_indexes[last_word_index].length; j++)
     {
