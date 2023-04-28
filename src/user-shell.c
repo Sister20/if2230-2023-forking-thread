@@ -481,7 +481,6 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
  * Invoking cd command from another command
  *
  * @param buf               input command buffer
- * @param target_buf_length initial target buf length. Example for cat, target_buf_length = length of "cat" + 1 = 4
  * @param new_path_indexes  new path after invoking parse_new_path_indexes
  * @param target_directory  new directory info after invoking cd command
  * @param target_name       parsed target name from buffer
@@ -489,29 +488,24 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
  * @return -
  */
 void invoke_cd(char *buf,
-               int target_buf_length,
                struct IndexInfo *new_path_indexes,
                struct CurrentDirectoryInfo *target_directory,
                struct ParseString *target_name)
 {
-    int i = 0;
-    while (!is_default_index(new_path_indexes[i + 1]))
-    {
-        target_buf_length += new_path_indexes[i].length;
-        i++;
-    }
+    int last_word_index = get_words_count(new_path_indexes) - 1;
+    int last_word_starting_index = new_path_indexes[last_word_index].index;
 
-    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
+    for (int j = last_word_starting_index; j < last_word_starting_index + new_path_indexes[last_word_index].length; j++)
     {
-        target_name->word[j - target_buf_length] = buf[j];
+        target_name->word[j - last_word_starting_index] = buf[j];
     }
-    target_name->length = new_path_indexes[i].length;
+    target_name->length = new_path_indexes[last_word_index].length;
 
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
     {
-        char target_buff[target_buf_length];
-        for (int i = 0; i < target_buf_length; i++)
+        char target_buff[last_word_starting_index-1];
+        for (int i = 0; i < last_word_starting_index-1; i++)
         {
             target_buff[i] = buf[i];
         }
