@@ -551,26 +551,36 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
 
   request.parent_cluster_number = prev_cluster_number;
 
-  // Found a matching directory entry, check if subdirectory empty or not
-  if (is_subdirectory(entry))
+  if (!is_subdirectory(entry))
   {
-
-    // Exit if the deletion is not recursive but the directory is not empty
-    if (!is_subdirectory_immediately_empty(entry) && !is_recursive)
-    {
-      return 2;
-    }
-
-    read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
-
-    // Folder is empty and can be deleted
-    delete_subdirectory_by_entry(entry, request);
-
+    // Not a folder, delete as a file
+    delete_file_by_entry(entry, request);
     return 0;
   }
 
-  // Not a folder, delete as a file
-  delete_file_by_entry(entry, request);
+  // Exit if the deletion is not recursive but the directory is not empty
+  if (!is_subdirectory_immediately_empty(entry) && !is_recursive)
+  {
+    return 2;
+  }
+
+  // Folder is empty and can be deleted
+  if (is_subdirectory_immediately_empty(entry) && !is_recursive)
+  {
+    delete_subdirectory_by_entry(entry, request);
+    return 0;
+  }
+
+  // If check recursion is false, no checking will be done
+  if (check_recursion && !is_below_max_recursion_depth(entry->cluster_low, 0))
+  {
+    return 5;
+  }
+
+  // Reset the read clusters to the initial state of the function
+  read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
+  // Start recursive deletion
+
   return 0;
 }
 

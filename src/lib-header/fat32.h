@@ -271,7 +271,7 @@ int8_t write(struct FAT32DriverRequest request);
  *
  * @param request buf and buffer_size is unused
  * @param is_recursive whether deletion should be recursive. Value only affects subdirectory deletion and doesn't affect file
- * @param check_recursion whether the given directory have been checked to be shallow enough for recursion
+ * @param check_recursion whether the given directory have been checked to be shallow enough for recursion. Should be TRUE during initial call
  * @return Error code: 0 success - 1 not found - 2 folder is not empty - -1
  * unknown - 4 invalid parent cluster
  * - 5 folder structure too deep for recursion
