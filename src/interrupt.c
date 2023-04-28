@@ -149,7 +149,8 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
     else if (cpu.eax == 3)
     {
         struct FAT32DriverRequest request = *(struct FAT32DriverRequest *)cpu.ebx;
-        *((int8_t *)cpu.ecx) = delete(request);
+        bool is_recursive = (bool)cpu.edx;
+        *((int8_t *)cpu.ecx) = delete (request, is_recursive);
     }
 
     else if (cpu.eax == 4)

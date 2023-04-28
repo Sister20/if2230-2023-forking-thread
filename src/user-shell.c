@@ -24,8 +24,8 @@ const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "rm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "mv\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "whereis\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-    "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-    "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+    "rm -r\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+    "cp -r\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
 };
@@ -320,7 +320,7 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     dir_table = request.buf;
 
-                    memcpy(request.name, temp_info.paths[temp_info.current_path_count-1], DIRECTORY_NAME_LENGTH);
+                    memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
 
                     request.parent_cluster_number = dir_table->table->cluster_low;
                 }
@@ -376,7 +376,7 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     char errorMsg[] = "Error: directory not found\n";
                     syscall(5, (uint32_t)errorMsg, 28, 0xF);
-                    
+
                     return 0;
                 }
             }
@@ -394,9 +394,11 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     struct CurrentDirectoryInfo temp_info = {};
     copy_directory_info(&temp_info, &info);
 
-    if ((uint32_t) indexes != 0) {
+    if ((uint32_t)indexes != 0)
+    {
         int status = cd_command(buf, indexes, &temp_info);
-        if (!status) return;
+        if (!status)
+            return;
     }
 
     struct ClusterBuffer cl[5];
@@ -418,7 +420,6 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
     }
 
-
     int32_t retcode;
 
     syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
@@ -437,16 +438,19 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             {
                 uint32_t color;
 
-                if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY) color = 0xa;
-                else color = 0xf;
+                if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY)
+                    color = 0xa;
+                else
+                    color = 0xf;
                 syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, color);
-                if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1) print_space();
+                if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1)
+                    print_space();
                 j++;
             }
 
             i++;
         }
-        
+
         print_newline();
     }
 
@@ -456,7 +460,6 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         syscall(5, (uint32_t)msg, 26, 0xF);
         syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
         print_newline();
-
     }
 }
 
@@ -475,7 +478,6 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
     get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
 }
-
 
 /**
  * Invoking cd command from another command
@@ -810,7 +812,7 @@ void cp_command(struct CurrentDirectoryInfo *source_dir,
     }
 }
 
-void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
+void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -835,7 +837,7 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
     memcpy(delete_request.ext, ext.word, ext.length);
 
     int32_t retcode;
-    syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+    syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, is_recursive);
 }
 
 void mv_command(struct CurrentDirectoryInfo *source_dir,
@@ -848,7 +850,7 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                dest_dir,
                dest_name);
 
-    rm_command(source_dir, source_name);
+    rm_command(source_dir, source_name, FALSE);
 }
 
 int main(void)
@@ -919,7 +921,7 @@ int main(void)
                     if (argsCount == 1)
                     {
                         cd_command(buf, (uint32_t)0, &current_directory_info);
-                    } 
+                    }
                     else if (argsCount == 2)
                     {
                         cd_command(buf, word_indexes + 1, &current_directory_info);
@@ -932,8 +934,8 @@ int main(void)
                 else if (commandNumber == 1)
                 {
                     if (argsCount == 1)
-                        ls_command(buf, (uint32_t) 0, current_directory_info);
-                    
+                        ls_command(buf, (uint32_t)0, current_directory_info);
+
                     else if (argsCount == 2)
                         ls_command(buf, word_indexes + 1, current_directory_info);
                     else
@@ -964,7 +966,7 @@ int main(void)
 
                     // get destination directory info & source file name
                     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    parse_path_for_cd(buf, word_indexes+1, new_path_indexes);
+                    parse_path_for_cd(buf, word_indexes + 1, new_path_indexes);
                     invoke_cd(buf, word_indexes[2].index, new_path_indexes, &dest_dir, &dest_name);
 
                     // invoke cp command
@@ -984,7 +986,7 @@ int main(void)
                     invoke_cd(buf, word_indexes[1].index, new_path_indexes, &target_dir, &target_name);
 
                     // invoke cp command
-                    rm_command(&target_dir, &target_name);
+                    rm_command(&target_dir, &target_name, FALSE);
                 }
 
                 else if (commandNumber == 6)
@@ -1003,7 +1005,7 @@ int main(void)
 
                     // get destination directory info & source file name
                     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    parse_path_for_cd(buf, word_indexes+1, new_path_indexes);
+                    parse_path_for_cd(buf, word_indexes + 1, new_path_indexes);
                     invoke_cd(buf, word_indexes[2].index, new_path_indexes, &dest_dir, &dest_name);
 
                     // invoke cp command
@@ -1012,10 +1014,23 @@ int main(void)
 
                 else if (commandNumber == 7)
                 {
+                    // rm recursive command
+                    struct CurrentDirectoryInfo target_dir = current_directory_info;
+
+                    struct ParseString target_name;
+
+                    // get source directory info & source file name
+                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
+                    parse_path_for_cd(buf, word_indexes, new_path_indexes);
+                    invoke_cd(buf, word_indexes[1].index, new_path_indexes, &target_dir, &target_name);
+
+                    // invoke rm recursive command
+                    rm_command(&target_dir, &target_name, TRUE);
                 }
 
                 else if (commandNumber == 8)
                 {
+                    // cp recursive command
                 }
             }
 
