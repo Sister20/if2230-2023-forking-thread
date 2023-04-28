@@ -482,6 +482,7 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
  *
  * @param buf               input command buffer
  * @param new_path_indexes  new path after invoking parse_new_path_indexes
+ * @param last_word_starting_index   initial target buf length. Example for cat, target_buf_length = length of "cat" + 1 = 4
  * @param target_directory  new directory info after invoking cd command
  * @param target_name       parsed target name from buffer
  *
@@ -489,11 +490,12 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
  */
 void invoke_cd(char *buf,
                struct IndexInfo *new_path_indexes,
+               int last_word_starting_index,
                struct CurrentDirectoryInfo *target_directory,
                struct ParseString *target_name)
 {
     int last_word_index = get_words_count(new_path_indexes) - 1;
-    int last_word_starting_index = new_path_indexes[last_word_index].index;
+    last_word_starting_index += new_path_indexes[last_word_index].index;
 
     for (int j = last_word_starting_index; j < last_word_starting_index + new_path_indexes[last_word_index].length; j++)
     {
