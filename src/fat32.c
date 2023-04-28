@@ -484,7 +484,7 @@ int8_t write(struct FAT32DriverRequest request)
   return 0;
 }
 
-int8_t delete(struct FAT32DriverRequest request, bool is_recursive)
+int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_recursion)
 {
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
@@ -554,10 +554,14 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive)
   // Found a matching directory entry, check if subdirectory empty or not
   if (is_subdirectory(entry))
   {
-    if (!is_subdirectory_immediately_empty(entry))
+
+    // Exit if the deletion is not recursive but the directory is not empty
+    if (!is_subdirectory_immediately_empty(entry) && !is_recursive)
     {
       return 2;
     }
+
+    read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
     // Folder is empty and can be deleted
     delete_subdirectory_by_entry(entry, request);
@@ -996,6 +1000,60 @@ void set_access_datetime(struct FAT32DirectoryEntry *entry)
   uint32_t FTTimestamp = get_FTTimestamp_time();
   entry->access_date = ((FTTimestamp & 0xFFFF0000) >> 16);
   entry->access_time = (FTTimestamp & 0x0000FFFF);
+}
+
+bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recursion_count)
+{
+  // Basis
+  if (recursion_count >= MAX_RECURSIVE_OP_DEPTH)
+  {
+    return FALSE;
+  }
+
+  // Get the directory table of the directory to check
+  read_clusters(&driver_state.dir_table_buf, target_cluster_number, 1);
+
+  bool end_of_directory = FALSE;
+  struct FAT32DirectoryEntry *entry;
+
+  uint16_t now_cluster_number = target_cluster_number;
+  uint16_t prev_cluster_number;
+
+  while (!end_of_directory)
+  {
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+      if (is_subdirectory(entry))
+      {
+        // Return false if recursive checking finds the subdirectory in the directory too deep
+        if (!is_below_max_recursion_depth(entry->cluster_low, recursion_count + 1))
+        {
+          return FALSE;
+        }
+      }
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last
+    // cluster of the directory
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] &
+                        0x0000FFFF) == 0xFFFF;
+
+    // Take notes of the latest_cluster_number for the proper copying of
+    // directory table
+    prev_cluster_number = now_cluster_number;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number =
+          driver_state.fat_table.cluster_map[now_cluster_number];
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number,
+                    1);
+    }
+  }
+  return TRUE;
 }
 
 // uint32_t read_cluster_number(char** directories, int count, uint16_t latest_parent_cluster_number) {

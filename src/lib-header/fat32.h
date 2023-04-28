@@ -34,6 +34,9 @@
 #define ATTR_SUBDIRECTORY_CHILD 0b00010001
 #define UATTR_NOT_EMPTY 0b10101010
 
+/* -- File operation constant -- */
+#define MAX_RECURSIVE_OP_DEPTH 64
+
 // Boot sector signature for this file system "FAT32 - IF2230 edition"
 extern const uint8_t fs_signature[BLOCK_SIZE];
 
@@ -267,12 +270,13 @@ int8_t write(struct FAT32DriverRequest request);
  * file system.
  *
  * @param request buf and buffer_size is unused
- * @param whether deletion should be recursive. Value only affects subdirectory deletion and doesn't affect file
+ * @param is_recursive whether deletion should be recursive. Value only affects subdirectory deletion and doesn't affect file
+ * @param check_recursion whether the given directory have been checked to be shallow enough for recursion
  * @return Error code: 0 success - 1 not found - 2 folder is not empty - -1
  * unknown - 4 invalid parent cluster
  * - 5 folder structure too deep for recursion
  */
-int8_t delete(struct FAT32DriverRequest request, bool is_recursive);
+int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_recursion);
 
 /* -- Getter/Setter  Auxiliary Function -- */
 
@@ -482,5 +486,15 @@ void set_modified_date(struct FAT32DirectoryEntry *entry);
  * @param entry
  */
 void set_access_datetime(struct FAT32DirectoryEntry *entry);
+
+/**
+ * @brief Check whether the depth of the directory is deeper than the MAX_RECURSIVE_OP_DEPTH
+ *
+ * @param lower_cluster_number the cluster number of the directory to be checked
+ * @param recursion_count the number of recursion so far
+ * @return true
+ * @return false
+ */
+bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recursion_count);
 
 #endif
