@@ -493,7 +493,7 @@ void invoke_cd(char *buf,
                int target_buf_length,
                struct IndexInfo *new_path_indexes,
                struct CurrentDirectoryInfo *target_directory,
-               char *target_name)
+               struct ParseString *target_name)
 {
     int i = 0;
     while (!is_default_index(new_path_indexes[i + 1]))
@@ -504,8 +504,9 @@ void invoke_cd(char *buf,
 
     for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
     {
-        target_name[j - target_buf_length] = buf[j];
+        target_name->word[j - target_buf_length] = buf[j];
     }
+    target_name->length = new_path_indexes[i].length;
 
     // check if path_segment count > 1
     if (!is_default_index(new_path_indexes[1]))
