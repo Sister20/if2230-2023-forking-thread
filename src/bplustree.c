@@ -425,3 +425,30 @@ uint8_t whereis_main(struct RequestSearch *request){
         return 1;
     }
 }
+
+void reset_nodes(){
+    for(int i = 0; i < MAX_NODES; i++){
+        // Reset Nodes
+        for(int j = 0 ; j < MAX_CHILDREN; j++){
+            nodes[i].children[i] = NULL;
+        }
+        nodes[i].number_of_keys = 0;
+        nodes[i].leaf = FALSE;
+        nodes[i].parent = NULL;
+
+        // Reset PCNodes
+        for(int j = 0; j < MAX_SAME_TARGET; j++){
+            pcNodes[i].parent_cluster_number[i] = 0;
+            memcpy(pcNodes[i].ext, "\0\0\0", 3);
+        }
+        pcNodes[i].n_of_items = 0;
+    }
+}
+
+void create_b_tree(){
+    reset_nodes();
+
+    // Initialize B+ Tree
+    BPlusTree = make_tree("root\0\0\0\0", "\0\0\0", 2);
+    initialize_b_tree(BPlusTree, "root\0\0\0\0", 2, 2);
+}

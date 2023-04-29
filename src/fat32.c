@@ -520,11 +520,16 @@ int8_t delete(struct FAT32DriverRequest request) {
     // Folder is empty and can be deleted
     delete_subdirectory_by_entry(entry, request);
 
+    // Reset all nodes and initialize B+ Tree
+    create_b_tree();
     return 0;
   }
 
   // Not a folder, delete as a file
   delete_file_by_entry(entry, request);
+
+  // Reset all nodes and initialize B+ Tree
+  create_b_tree();
   return 0;
 }
 

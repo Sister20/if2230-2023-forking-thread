@@ -4,8 +4,9 @@
 #include "stdtype.h"
 #include "fat32.h"
 
-#define MAX_NODES 256
-#define MAX_CHILDREN 5
+#define MAX_NODES 512
+#define MAX_CHILDREN 7
+#define MAX_SAME_TARGET 50
 #define NULL ((void *)0)
 
 /* -- B+ Tree -- */
@@ -17,8 +18,8 @@
  */
 struct PCNode
 {
-  uint32_t parent_cluster_number[MAX_CHILDREN];
-  char ext[MAX_CHILDREN][3];
+  uint32_t parent_cluster_number[MAX_SAME_TARGET];
+  char ext[MAX_SAME_TARGET][3];
   uint32_t n_of_items;
 };
 
@@ -186,5 +187,15 @@ void initialize_b_tree(struct NodeFileSystem *root, char* dir_name, uint32_t par
  * @return 0 if no target found, 1 if target found
  */
 uint8_t whereis_main(struct RequestSearch *request);
+
+/**
+ * @brief Reset all nodes
+ */
+void reset_nodes();
+
+/**
+ * @brief Initialize B+ Tree with Root
+ */
+void create_b_tree();
 
 #endif
