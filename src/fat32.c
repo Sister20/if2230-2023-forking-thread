@@ -1032,7 +1032,6 @@ bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recurs
   struct FAT32DirectoryEntry *entry;
 
   uint16_t now_cluster_number = target_cluster_number;
-  uint16_t prev_cluster_number;
 
   while (!end_of_directory)
   {
@@ -1054,10 +1053,6 @@ bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recurs
     // cluster of the directory
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] &
                         0x0000FFFF) == 0xFFFF;
-
-    // Take notes of the latest_cluster_number for the proper copying of
-    // directory table
-    prev_cluster_number = now_cluster_number;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
@@ -1085,7 +1080,6 @@ void delete_subdirectory_content(uint16_t target_cluster_number)
   struct FAT32DirectoryEntry *entry;
 
   uint16_t now_cluster_number = target_cluster_number;
-  uint16_t prev_cluster_number;
 
   while (!end_of_directory)
   {
@@ -1107,10 +1101,6 @@ void delete_subdirectory_content(uint16_t target_cluster_number)
     // cluster of the directory
     end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] &
                         0x0000FFFF) == 0xFFFF;
-
-    // Take notes of the latest_cluster_number for the proper copying of
-    // directory table
-    prev_cluster_number = now_cluster_number;
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
