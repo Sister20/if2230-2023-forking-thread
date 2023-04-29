@@ -771,7 +771,6 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
         syscall(5, (uint32_t)msg, 24, 0xF);
 
         // return;
-
     }
 
     // prepare read file request
@@ -1010,10 +1009,10 @@ int main(void)
                     struct ParseString dest_name;
 
                     // get source directory info & source file name
-                    invoke_cd(buf, word_indexes+1, &source_dir, &source_name);
+                    invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
 
                     // get destination directory info & source file name
-                    invoke_cd(buf, word_indexes+2, &dest_dir, &dest_name);
+                    invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
 
                     // invoke cp command
                     cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
@@ -1023,13 +1022,13 @@ int main(void)
                 {
                     // rm_command
                     struct CurrentDirectoryInfo target_dir;
-                    copy_directory_info(&target_dir,&current_directory_info);
+                    copy_directory_info(&target_dir, &current_directory_info);
 
                     struct ParseString target_name = {};
                     reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
 
                     // get source directory info & source file name
-                    invoke_cd(buf, word_indexes+1, &target_dir, &target_name);
+                    invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
 
                     // invoke rm command
                     rm_command(&target_dir, &target_name);
@@ -1038,24 +1037,40 @@ int main(void)
                 else if (commandNumber == 6)
                 {
                     // mv_command
+                    if (argsCount == 1)
+                    {
+                        syscall(5, (uint32_t) "Please give the source path!", 28, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 2)
+                    {
+                        syscall(5, (uint32_t) "Please give the destination path!", 33, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 3)
+                    {
+                        struct CurrentDirectoryInfo source_dir = {};
+                        struct CurrentDirectoryInfo dest_dir = {};
 
-                    struct CurrentDirectoryInfo source_dir = {};
-                    struct CurrentDirectoryInfo dest_dir = {};
+                        copy_directory_info(&source_dir, &current_directory_info);
+                        copy_directory_info(&dest_dir, &current_directory_info);
 
-                    copy_directory_info(&source_dir, &current_directory_info);
-                    copy_directory_info(&dest_dir, &current_directory_info);
+                        struct ParseString source_name = {};
+                        struct ParseString dest_name = {};
 
-                    struct ParseString source_name = {};
-                    struct ParseString dest_name = {};
+                        // get source directory info & source file name
+                        invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
 
-                    // get source directory info & source file name
-                    invoke_cd(buf, word_indexes+1, &source_dir, &source_name);
+                        // get destination directory info & source file name
+                        invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
 
-                    // get destination directory info & source file name
-                    invoke_cd(buf, word_indexes+2, &dest_dir, &dest_name);
-
-                    // invoke mv command
-                    mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        // invoke mv command
+                        mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                    }
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                    }
                 }
 
                 else if (commandNumber == 7)
