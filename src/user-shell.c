@@ -583,7 +583,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     memcpy(write_request.name, target_name.word, target_name.length);
 
-    int32_t retcode;
+    int8_t retcode;
     syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
 
     if (retcode == 1)
@@ -653,7 +653,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     memcpy(read_request.name, target_file_name_parsed.word, target_file_name_parsed.length);
     memcpy(read_request.ext, target_file_name_extension.word, target_file_name_extension.length);
 
-    int32_t retcode;
+    int8_t retcode;
 
     syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
 
@@ -710,7 +710,7 @@ uint32_t traverse_directories(char *target_name, uint32_t parent_cluster_number)
 
     memcpy(read_folder_request.name, target_name, sizeof(target_name));
 
-    int32_t retcode;
+    int8_t retcode;
     syscall(1, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
