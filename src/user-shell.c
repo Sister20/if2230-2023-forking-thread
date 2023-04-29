@@ -2,6 +2,7 @@
 #include "lib-header/fat32.h"
 #include "lib-header/stdmem.h"
 #include "lib-header/framebuffer.h"
+#include "lib-header/bplustree.h"
 
 #define SHELL_BUFFER_SIZE 256
 #define COMMAND_MAX_SIZE 32
@@ -639,6 +640,8 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     // read the file from FATtable
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
+    reset_buffer((char *)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
+
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
         .parent_cluster_number = target_directory.current_cluster_number,
@@ -696,56 +699,6 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         print_newline();
     }
 }
-/**
- * Traverse all directories from ROOT to find a folder or file with name equals to target_name
- *
- * @param target_name           file or folder name
- * @param parent_cluster_number parent cluster number for the corresponding folder
- *
- * @return 0                     : target_name not found;
- *         parent_cluster_number : target_name found at file or folder with parent_cluster_number;
- */
-uint32_t traverse_directories(char *target_name, uint32_t parent_cluster_number)
-{
-    bool is_found = 0;
-    struct ClusterBuffer cl[10];
-    struct FAT32DriverRequest read_folder_request = {
-        .buf = &cl,
-        .ext = EMPTY_EXTENSION,
-        .parent_cluster_number = parent_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 10,
-    };
-
-    memcpy(read_folder_request.name, target_name, sizeof(target_name));
-
-    int8_t retcode;
-    syscall(1, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
-
-    if (retcode == 0)
-    {
-        struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
-
-        uint32_t counter_entry = 0;
-        for (uint32_t i = 0; i < 10 && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
-        {
-            for (uint32_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
-            {
-                counter_entry++;
-                if (memcmp(dir_table[i].table[j].name, target_name, sizeof(target_name)) == 0)
-                {
-                    is_found = parent_cluster_number;
-                }
-                else if (dir_table[i].table[j].attribute == ATTR_SUBDIRECTORY)
-                {
-                    is_found = traverse_directories(target_name, (dir_table[i].table[j].cluster_high << 16) +
-                                                                     dir_table[i].table[j].cluster_low);
-                }
-            }
-        }
-    }
-
-    return is_found;
-}
 
 /**
  * Calling syscall type-5 for printing the path after whereis command
@@ -759,7 +712,7 @@ void print_path(uint32_t cluster_number)
     // root found - base condition
     if (cluster_number == ROOT_CLUSTER_NUMBER)
     {
-        syscall(5, (uint32_t) "/", 1, 0xF);
+        print_newline();
         return;
     }
 
@@ -781,10 +734,71 @@ void print_path(uint32_t cluster_number)
         print_path((dir_table->table->cluster_high << 16) + dir_table->table->cluster_low);
         syscall(5, (uint32_t) "/", 1, 0xF);
         syscall(5, (uint32_t)dir_table->table->name, 8, 0xF);
-        print_newline();
     }
 }
 
+uint32_t get_file_size(uint32_t current_cluster_number, char *current_folder_name, char *file_name, char *ext)
+{
+    // return 0 if not found
+
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
+
+    struct FAT32DriverRequest request = {
+        .buf = &cl,
+        .name = "root\0\0\0\0",
+        .ext = "\0\0\0",
+        .parent_cluster_number = current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
+    };
+
+    struct FAT32DirectoryTable *dir_table;
+
+    if (current_cluster_number > ROOT_CLUSTER_NUMBER)
+    {
+        syscall(6, (uint32_t)&request, 0, 0);
+
+        dir_table = request.buf;
+
+        memcpy(request.name, current_folder_name, DIRECTORY_NAME_LENGTH);
+
+        request.parent_cluster_number = dir_table->table->cluster_low;
+    }
+
+    int8_t retcode;
+
+    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
+
+    dir_table = request.buf;
+    uint32_t j = 0;
+    struct FAT32DirectoryEntry *entry;
+    bool found = FALSE;
+
+    while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
+    {
+        for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
+        {
+            entry = &dir_table[j].table[k];
+
+            if (entry->user_attribute != UATTR_NOT_EMPTY)
+                continue;
+
+            if (memcmp(entry->name, file_name, DIRECTORY_NAME_LENGTH) == 0 && memcmp(entry->ext, ext, EXTENSION_NAME_LENGTH) == 0)
+
+            {
+                found = TRUE;
+            }
+        }
+
+        j++;
+    }
+
+    if (!found)
+    {
+        return 0;
+    }
+
+    return entry->filesize;
+}
 /**
  * cp command in shell, copy the file in specified source directory to the specified destination directory with new name
  * @param source_dir    directory of file to be copied
@@ -802,6 +816,8 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 {
     // prepare buffer in memory for copying
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
+
+    reset_buffer((char *)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
 
     /* READING STAGE */
 
@@ -838,6 +854,19 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
         // read file to buffer success
         /* WRITING STAGE */
 
+        char file_name[] = EMPTY_NAME;
+        char file_ext[] = EMPTY_EXTENSION;
+        memcpy(file_name, name.word, name.length);
+        memcpy(file_ext, ext.word, ext.length);
+
+        char source_dir_name[] = "root\0\0\0\0";
+
+        if (source_dir->current_cluster_number > ROOT_CLUSTER_NUMBER)
+        {
+            memcpy(source_dir_name, source_dir->paths[source_dir->current_path_count - 1], DIRECTORY_NAME_LENGTH);
+        }
+        uint32_t file_size = get_file_size(source_dir->current_cluster_number, source_dir_name, file_name, file_ext);
+
         // split source filename to name and extension
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if (splitcode == 2 || splitcode == 3)
@@ -847,13 +876,21 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
             // return;
         }
 
+        if (file_size == 0)
+        {
+            char errorMsg[] = "Error: file/folder not found.\n";
+            syscall(5, (uint32_t)errorMsg, 31, 0xF);
+
+            return 1;
+        }
+
         // prepare write file request
         struct FAT32DriverRequest write_request = {
             .buf = cl,
-            // .name = EMPTY_NAME,
+            .name = EMPTY_NAME,
             .ext = EMPTY_EXTENSION,
             .parent_cluster_number = dest_dir->current_cluster_number,
-            .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
+            .buffer_size = file_size,
         };
         memcpy(write_request.name, name.word, name.length);
         memcpy(write_request.ext, ext.word, ext.length);
@@ -981,6 +1018,67 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
 
     if (res == 0)
         rm_command(source_dir, source_name, FALSE);
+}
+
+/**
+ * Handling command whereis in shell
+ *
+ * @param source_name target name to find
+ *
+ * @return 0 if no target found, 1 if target found
+ */
+uint32_t whereis_command(struct ParseString *source_name)
+{
+    // Create Search Request
+    struct RequestSearch search_request = {};
+
+    // Assign target name to search request
+    memcpy(search_request.search, source_name->word, 8);
+
+    // Syscall to search target paths
+    syscall(7, (uint32_t)&search_request, 0, 0);
+
+    // If no target found
+    if (search_request.result.n_of_items == 0)
+    {
+        return 0;
+    }
+
+    // Define colon and dot
+    char colon[1] = {':'};
+    char dot[1] = {'.'};
+
+    // Print target name and colon
+    syscall(5, (uint32_t)source_name, 8, 0xF);
+    syscall(5, (uint32_t)colon, 1, 0xF);
+
+    // Iterate all paths
+    uint32_t idx = 0;
+    while (idx < search_request.result.n_of_items)
+    {
+        // Print path directory
+        print_path(search_request.result.parent_cluster_number[idx]);
+
+        // Print target name
+        syscall(5, (uint32_t) "/", 1, 0xF);
+        syscall(5, (uint32_t)source_name, 8, 0xF);
+
+        // If target is file, print dot
+        if (memcmp(search_request.result.ext[idx], "\0\0\0", 3) != 0)
+        {
+            syscall(5, (uint32_t)dot, 1, 0xF);
+        }
+
+        // Print extension
+        syscall(5, (uint32_t)search_request.result.ext[idx], 3, 0xF);
+        idx++;
+    }
+
+    // Print newline to add space
+    print_newline();
+    print_newline();
+
+    return 1;
 }
 
 int main(void)
@@ -1277,6 +1375,35 @@ int main(void)
                     }
                 }
                 else if (commandNumber == 7)
+                {
+                    /* whereis Command */
+                    // Argument must be only 2 words
+                    if (argsCount == 2)
+                    {
+                        // Setup search
+                        struct ParseString find_name;
+                        memcpy(find_name.word, buf + word_indexes[1].index, buf[word_indexes[1].length]);
+                        find_name.length = 8;
+
+                        // Execute whereis command
+                        uint32_t res = whereis_command(&find_name);
+
+                        // If no target found
+                        if (!res)
+                        {
+                            char msg[] = "Target not found!\n";
+                            syscall(5, (uint32_t)msg, 18, 0xF);
+                        }
+                    }
+                    else
+                    {
+                        // If command is invalid
+                        char msg[] = "Invalid command whereis!\n";
+                        syscall(5, (uint32_t)msg, 25, 0xF);
+                    }
+                }
+
+                else if (commandNumber == 8)
                 {
                 }
             }

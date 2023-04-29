@@ -6,6 +6,7 @@
 #include "lib-header/idt.h"
 #include "lib-header/fat32.h"
 #include "lib-header/stdmem.h"
+#include "lib-header/bplustree.h"
 
 void io_wait(void)
 {
@@ -185,6 +186,20 @@ void syscall(struct CPURegister cpu, __attribute__((unused)) struct InterruptSta
         {
             // buffer size too small
             *((int8_t *)cpu.ecx) = 1;
+        }
+    }
+
+    else if (cpu.eax == 7)
+    {
+        // Get request from ebx
+        struct RequestSearch *request = (struct RequestSearch *)cpu.ebx;
+
+        // Execute whereis main
+        uint8_t res = whereis_main(request);
+
+        // If no target found, set n_of_items to 0
+        if(res == 0){
+            request->result.n_of_items = 0;
         }
     }
 }

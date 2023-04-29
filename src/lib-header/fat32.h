@@ -4,6 +4,7 @@
 #include "disk.h"
 #include "stdtype.h"
 #include "cmosrtc.h"
+#include "bplustree.h"
 
 /**
  * FAT32 - IF2230 edition - 2023
@@ -85,6 +86,7 @@ struct FAT32FileAllocationTable
  * @param filesize       Filesize of this file, if this is directory / folder,
  * filesize is the number of cluster it occupies * cluster size
  */
+
 struct FAT32DirectoryEntry
 {
   char name[8];

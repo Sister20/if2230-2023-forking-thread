@@ -41,8 +41,9 @@ void kernel_setup(void)
     memcpy(req.name, "f3", 2);
     write(req);
 
+    uint32_t f1 = 0xb;
     // move parent to f1
-    req.parent_cluster_number = 0xb;
+    req.parent_cluster_number = f1;
 
     memcpy(req.name, "f4", 2);
     write(req);
@@ -51,12 +52,12 @@ void kernel_setup(void)
     write(req);
 
     // move parent to f1
-    req.parent_cluster_number = 0xe;
+    req.parent_cluster_number = f1+3;
 
     memcpy(req.name, "f6", 2);
     write(req);
 
-    req.parent_cluster_number = 0x10;
+    req.parent_cluster_number = f1+4;
     memcpy(req.name, "f7", 2);
     write(req);
 
@@ -64,8 +65,12 @@ void kernel_setup(void)
     memcpy(req.name, "file1", 5);
     memcpy(req.ext, "txt", 3);
     struct ClusterBuffer cl = {
-        .buf = "freestar freestar Lorem ipsum dolor sit amet, consectetur adipiscing elit.Ut efficitur dui magna, nec tincidunt risus malesuada sit amet.Nam ligula mi, lacinia sed ornare sit amet, imperdiet ac sem.Nunc ac sapien dignissim, mollis augue sed, gravida dolor.Aenean blandit libero et massa gravida, eu tristique urna congue.Aenean quis tempor nisl, efficitur efficitur ligula.Sed consectetur iaculis risus et tempor.Aenean fringilla consectetur urna,        ut dapibus est rhoncus nec.Cras accumsan ut justo vel hendrerit.Duis imperdiet quam ac malesuada hendrerit.Morbi eget tortor faucibus,elementum elit sit amet, blandit nunc.Maecenas rutrum facilisis lorem, in ultricies nisl molestie et.Proin sit amet ipsum at mi luctus pellentesque dapibus quis mi.Integer aliquet velit sit amet odio aliquet posuere.Ut ultrices ac magna fermentum malesuada.Proin nec rhoncus enim.Etiam id metus id nibh convallis venenatis.Nunc quis purus vulputate sem volutpat porttitor et non metus.Vestibulum commodo luctus neque ut congue.Etiam consectetur urna ut lectus maximus rhoncus.Vivamus a leo ut nisl feugiat pulvinar eget et diam.Nullam vitae ultrices arcu.Proin non sapien quis velit vulputate congue.Nulla pellentesque feugiat tempor.",
+        
     };
+
+    for (uint32_t i = 0; i < CLUSTER_SIZE; i++) cl.buf[i] = '\0';
+
+    memcpy(&cl, "freestar freestar Lorem ipsum dolor sit amet, consectetur adipiscing elit.Ut efficitur dui magna, nec tincidunt risus malesuada sit amet.Nam ligula mi, lacinia sed ornare sit amet, imperdiet ac sem.Nunc ac sapien dignissim, mollis augue sed, gravida dolor.Aenean blandit libero et massa gravida, eu tristique urna congue.Aenean quis tempor nisl, efficitur efficitur ligula.Sed consectetur iaculis risus et tempor.Aenean fringilla consectetur urna,        ut dapibus est rhoncus nec.Cras accumsan ut justo vel hendrerit.Duis imperdiet quam ac malesuada hendrerit.Morbi eget tortor faucibus,elementum elit sit amet, blandit nunc.Maecenas rutrum facilisis lorem, in ultricies nisl molestie et.Proin sit amet ipsum at mi luctus pellentesque dapibus quis mi.Integer aliquet velit sit amet odio aliquet posuere.Ut ultrices ac magna fermentum malesuada.Proin nec rhoncus enim.Etiam id metus id nibh convallis venenatis.Nunc quis purus vulputate sem volutpat porttitor et non metus.Vestibulum commodo luctus neque ut congue.Etiam consectetur urna ut lectus maximus rhoncus.Vivamus a leo ut nisl feugiat pulvinar eget et diam.Nullam vitae ultrices arcu.Proin non sapien quis velit vulputate congue.Nulla pellentesque feugiat tempor.", 1224);
     req.buf = &cl;
     req.buffer_size = CLUSTER_SIZE;
     req.parent_cluster_number = ROOT_CLUSTER_NUMBER;
