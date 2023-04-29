@@ -24,7 +24,7 @@ const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "rm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "mv\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "whereis\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-    "rmr\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+    "rmr\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "cpr\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -833,7 +833,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
  * @param is_recursive whether the rm command should be recursive
  * @return  -
  */
-void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
+int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -1057,8 +1057,10 @@ int main(void)
                     // invoke mv command
                     mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
                 }
-
                 else if (commandNumber == 7)
+                {
+                }
+                else if (commandNumber == 8)
                 {
                     // rm recursive command
                     struct CurrentDirectoryInfo target_dir = current_directory_info;
@@ -1066,17 +1068,10 @@ int main(void)
                     struct ParseString target_name;
 
                     // get source directory info & source file name
-                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-                    parse_path_for_cd(buf, word_indexes, new_path_indexes);
-                    invoke_cd(buf, new_path_indexes, &target_dir, &target_name);
+                    invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
 
-                    // invoke rm recursive command
+                    // invoke cp command
                     rm_command(&target_dir, &target_name, TRUE);
-                }
-
-                else if (commandNumber == 8)
-                {
-                    // cp recursive command
                 }
             }
 

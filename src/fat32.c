@@ -571,6 +571,8 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
     return 0;
   }
 
+  uint16_t entry_cluster_position = entry->cluster_low;
+
   // If check recursion is false, no checking will be done
   if (check_recursion && !is_below_max_recursion_depth(entry->cluster_low, 0))
   {
@@ -578,7 +580,7 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
   }
 
   // Delete the directory's content
-  delete_subdirectory_content(entry->cluster_low);
+  delete_subdirectory_content(entry_cluster_position);
 
   // Reset the read clusters to the cluster where the entry of the directory to be deleted is located in the directory table
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
@@ -668,8 +670,14 @@ void delete_subdirectory_content(uint16_t target_cluster_number)
          i++)
     {
       entry = &(driver_state.dir_table_buf.table[i]);
+      // Skip entry if it's empty
+      if (is_entry_empty(entry))
+      {
+        continue;
+      }
       if (is_subdirectory(entry))
       {
+        memcpy(&(req.name), &(entry->name), 8);
         delete (req, TRUE, FALSE);
       }
       else
