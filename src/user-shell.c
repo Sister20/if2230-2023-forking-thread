@@ -11,8 +11,8 @@
 #define EXTENSION_NAME_LENGTH 3
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 64
-#define MAX_FILE_BUFFER_CLUSTER_SIZE 512 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
-
+#define MAX_FILE_BUFFER_CLUSTER_SIZE 32
+#define MAX_FOLDER_CLUSTER_SIZE 5
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 
@@ -145,7 +145,11 @@ int get_command_number(char *buf, int starting_index, int command_length)
 
     for (int i = 0; i < COMMAND_COUNT; i++)
     {
-        if (memcmp(buf + starting_index, command_list[i], command_length) == 0)
+        char command[COMMAND_MAX_SIZE];
+
+        reset_buffer(command, COMMAND_MAX_SIZE);
+        memcpy(command, buf + starting_index, command_length);
+        if (memcmp(command, command_list[i], COMMAND_MAX_SIZE) == 0)
             return i;
     }
 
@@ -173,6 +177,12 @@ void copy_directory_info(struct CurrentDirectoryInfo *dest, struct CurrentDirect
     memcpy(dest->paths, source->paths, PATH_MAX_COUNT * DIRECTORY_NAME_LENGTH);
 }
 
+/**
+ * Set char buffer of ParseString data struct with input string with certain size
+ * @param parse_string  ParseString data to be filled with input string
+ * @param str           the string to be copied into parse_string
+ * @param size          the size of string to be copied into parse_string
+ */
 void set_ParseString(struct ParseString *parse_string, char *str, int size)
 {
     memcpy(parse_string->word, str, size);
@@ -199,6 +209,7 @@ int split_filename_extension(struct ParseString *filename,
 
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
+    reset_indexes(temp_index, INDEXES_MAX_COUNT);
     get_buffer_indexes(filename->word, temp_index, '.', 0, filename->length);
 
     int words_count = get_words_count(temp_index);
@@ -303,14 +314,14 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     return 0;
                 }
-                struct ClusterBuffer cl[5];
+                struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
 
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
                     .name = "root\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
-                    .buffer_size = CLUSTER_SIZE * 5,
+                    .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
                 };
 
                 struct FAT32DirectoryTable *dir_table;
@@ -321,12 +332,12 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     dir_table = request.buf;
 
-                    memcpy(request.name, temp_info.paths[temp_info.current_path_count-1], DIRECTORY_NAME_LENGTH);
+                    memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
 
                     request.parent_cluster_number = dir_table->table->cluster_low;
                 }
 
-                int32_t retcode;
+                int8_t retcode;
 
                 syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
@@ -336,11 +347,12 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                 while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
                 {
-                    int k = 1;
-
-                    while (k < dir_table[j].table->n_of_entries && !found)
+                    for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
                     {
                         struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
+
+                        if (entry->user_attribute != UATTR_NOT_EMPTY)
+                            continue;
 
                         char name[DIRECTORY_NAME_LENGTH] = "\0\0\0\0\0\0\0\0";
 
@@ -361,8 +373,6 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
                             temp_info.current_path_count++;
                             found = TRUE;
                         }
-
-                        k++;
                     }
 
                     j++;
@@ -377,7 +387,7 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     char errorMsg[] = "Error: directory not found\n";
                     syscall(5, (uint32_t)errorMsg, 28, 0xF);
-                    
+
                     return 0;
                 }
             }
@@ -395,18 +405,20 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
     struct CurrentDirectoryInfo temp_info = {};
     copy_directory_info(&temp_info, &info);
 
-    if ((uint32_t) indexes != 0) {
+    if ((uint32_t)indexes != 0)
+    {
         int status = cd_command(buf, indexes, &temp_info);
-        if (!status) return;
+        if (!status)
+            return;
     }
 
-    struct ClusterBuffer cl[5];
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
     struct FAT32DriverRequest request = {
         .buf = &cl,
         .name = "root\0\0\0\0",
         .ext = "\0\0\0",
         .parent_cluster_number = temp_info.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
     };
 
     if (temp_info.current_path_count > 0)
@@ -419,8 +431,7 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
     }
 
-
-    int32_t retcode;
+    int8_t retcode;
 
     syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
@@ -433,21 +444,32 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
         while (i < dir_table_count)
         {
-            int j = 1;
-            while (j < dirTable[i].table->n_of_entries)
+            for (int j = 1; j < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry); j++)
             {
+                if (dirTable[i].table[j].user_attribute != UATTR_NOT_EMPTY)
+                    continue;
+
                 uint32_t color;
 
-                if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY) color = 0xa;
-                else color = 0xf;
+                if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY)
+                    color = 0xa;
+                else
+                    color = 0xf;
                 syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, color);
-                if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1) print_space();
-                j++;
+
+                if (dirTable[i].table[j].attribute != ATTR_SUBDIRECTORY && memcmp(dirTable[i].table[j].ext, "\0\0\0", 3) != 0)
+                {
+                    char point_str[] = ".";
+                    syscall(5, (uint32_t)point_str, 1, color);
+                    syscall(5, (uint32_t)dirTable[i].table[j].ext, 3, color);
+                }
+
+                print_space();
             }
 
             i++;
         }
-        
+
         print_newline();
     }
 
@@ -457,7 +479,6 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         syscall(5, (uint32_t)msg, 26, 0xF);
         syscall(5, (uint32_t)request.name, DIRECTORY_NAME_LENGTH, 0xF);
         print_newline();
-
     }
 }
 
@@ -474,53 +495,56 @@ void parse_path_for_cd(char *buf, struct IndexInfo *indexes, struct IndexInfo *n
 {
     reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
     // [path_segment_1] [path_segment_2] [path_segment_3] ...
-    get_buffer_indexes(buf, new_path_indexes, '/', indexes[1].index, indexes[1].length);
+    get_buffer_indexes(buf, new_path_indexes, '/', indexes[0].index, indexes[0].length);
 }
-
 
 /**
  * Invoking cd command from another command
  *
- * @param buf               input command buffer
- * @param target_buf_length initial target buf length. Example for cat, target_buf_length = length of "cat" + 1 = 4
- * @param new_path_indexes  new path after invoking parse_new_path_indexes
- * @param target_directory  new directory info after invoking cd command
- * @param target_name       parsed target name from buffer
+ * @param buf                   input command buffer
+ * @param indexes               indexes after split on ' '
+ * @param target_directory      new directory info after invoking cd command
+ * @param target_name           parsed target name from buffer
  *
- * @return -
+ * @return 0: fail;
+ *         1: success;
  */
-void invoke_cd(char *buf,
-               int target_buf_length,
-               struct IndexInfo *new_path_indexes,
-               struct CurrentDirectoryInfo *target_directory,
-               struct ParseString *target_name)
+uint8_t invoke_cd(char *buf,
+                  struct IndexInfo *indexes,
+                  struct CurrentDirectoryInfo *target_directory,
+                  struct ParseString *target_name)
 {
-    int i = 0;
-    while (!is_default_index(new_path_indexes[i + 1]))
-    {
-        target_buf_length += new_path_indexes[i].length;
-        i++;
-    }
+    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
+    parse_path_for_cd(buf, indexes, new_path_indexes);
 
-    for (int j = target_buf_length; j < target_buf_length + new_path_indexes[i].length; j++)
-    {
-        target_name->word[j - target_buf_length] = buf[j];
-    }
-    target_name->length = new_path_indexes[i].length;
+    int last_word_index = get_words_count(new_path_indexes) - 1;
+    target_name->length = new_path_indexes[last_word_index].length;
 
-    // check if path_segment count > 1
-    if (!is_default_index(new_path_indexes[1]))
+    memcpy(target_name->word, buf + new_path_indexes[last_word_index].index, target_name->length);
+
+    if (get_words_count(new_path_indexes) > 1 || buf[new_path_indexes[0].index - 1] == '/')
     {
-        char target_buff[target_buf_length];
-        for (int i = 0; i < target_buf_length; i++)
+        int new_buf_length = new_path_indexes[last_word_index].index;
+        if (get_words_count(new_path_indexes) > 1)
         {
-            target_buff[i] = buf[i];
+            new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
         }
-        // call cd command to move the directory
-        cd_command(target_buff, new_path_indexes, target_directory);
 
-        // TODO: handle failed cd
+        char new_buf[new_buf_length];
+        for (int i = 0; i < new_buf_length; i++)
+        {
+            new_buf[i] = buf[i];
+        }
+
+        struct IndexInfo new_buf_indexes[INDEXES_MAX_COUNT];
+        reset_indexes(new_buf_indexes, INDEXES_MAX_COUNT);
+        // [path_segment_1] [path_segment_2] [path_segment_3] ...
+        get_buffer_indexes(new_buf, new_buf_indexes, ' ', 0, new_buf_length);
+        // call cd command to move the directory
+        return cd_command(new_buf, new_buf_indexes + 1, target_directory);
     }
+
+    return 1;
 }
 
 /**
@@ -532,54 +556,63 @@ void invoke_cd(char *buf,
  *
  * @return -
  */
-void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
+void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo info)
 {
-    // convert "mkdir" to "cd   "
-    buf[0] = 'c'; // m
-    buf[1] = 'd'; // k
-    for (int i = indexes[0].index + 2; i < indexes[0].length; i++)
-    {
-        buf[i] = ' '; // dir
-    }
-
     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
     parse_path_for_cd(buf, indexes, new_path_indexes);
 
     int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
     if (target_name_length > 8)
     {
-        char msg[] = "Invalid new directory name! Maximum 8 characters!";
+        char msg[] = "Error: directory name is too long.";
 
-        syscall(5, (uint32_t)msg, 49, 0xF);
+        syscall(5, (uint32_t)msg, 34, 0xF);
         print_newline();
         return;
     }
 
     // temporary CurrentDirectoryInfo for creating the new directory
     struct CurrentDirectoryInfo target_directory = {};
-    copy_directory_info(&target_directory, info);
-    struct ParseString target_name;
+    copy_directory_info(&target_directory, &info);
+    struct ParseString target_name = {};
 
-    invoke_cd(buf, 6, new_path_indexes, &target_directory, &target_name);
+    uint8_t cd_res = invoke_cd(buf, indexes, &target_directory, &target_name);
+
+    if (cd_res == 0)
 
     // create new directory in the target_directory
-    struct ClusterBuffer cl[5];
     struct FAT32DriverRequest write_request = {
-        .buf = &cl,
-        .ext = EMPTY_EXTENSION,
+        .buf = 0,
+        .ext = "\0\0\0",
         .parent_cluster_number = target_directory.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = 0,
     };
 
-    memcpy(write_request.name, target_name.word, target_name_length);
 
-    int32_t retcode;
+    memcpy(write_request.name, target_name.word, target_name.length);
 
+    int8_t retcode;
     syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
 
-    if (retcode != 0)
+    if (retcode == 1)
     {
-        // failed to create new directory
+        syscall(5, (uint32_t) "Error: folder already exist.", 28, 0xF);
+        print_newline();
+    }
+    else if (retcode == 2)
+    {
+        syscall(5, (uint32_t) "Error: invalid parent cluster.", 30, 0xF);
+        print_newline();
+    }
+    else if (retcode == 3)
+    {
+        syscall(5, (uint32_t) "Error: forbidden name.", 22, 0xF);
+        print_newline();
+    }
+    else if (retcode == -1)
+    {
+        syscall(5, (uint32_t) "Error: uknown error.", 20, 0xF);
+        print_newline();
     }
 }
 
@@ -592,47 +625,44 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
  *
  * @return -
  */
-void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo *info)
+void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInfo info)
 {
-    // convert "cat" to "cd  "
-    buf[0] = 'c'; // c
-    buf[1] = 'd'; // a
-    buf[2] = ' '; // t
-
-    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-    parse_path_for_cd(buf, indexes, new_path_indexes);
-
     // temporary CurrentDirectoryInfo for creating the new directory
     struct CurrentDirectoryInfo target_directory = {};
-    copy_directory_info(&target_directory, info);
-    int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
-    struct ParseString target_name;
+    copy_directory_info(&target_directory, &info);
+    struct ParseString target_name = {};
 
-    invoke_cd(buf, 6, new_path_indexes, &target_directory, &target_name);
+    uint8_t cd_res = invoke_cd(buf, indexes, &target_directory, &target_name);
+
+    if (cd_res == 0)
+        return;
 
     // read the file from FATtable
-    struct ClusterBuffer cl[5];
+    struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
         .parent_cluster_number = target_directory.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
     };
 
     struct ParseString target_filename = {};
-    set_ParseString(&target_filename, target_name.word, target_name_length);
+    set_ParseString(&target_filename, target_name.word, target_name.length);
+
     struct ParseString target_file_name_parsed = {};
     struct ParseString target_file_name_extension = {};
     int split_result = split_filename_extension(&target_filename, &target_file_name_parsed, &target_file_name_extension);
 
-    memcpy(read_request.name, target_name.word, target_name_length);
     if (split_result != 0 && split_result != 1)
     {
-        syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
+        syscall(5, (uint32_t) "Invalid command.", 16, 0xF);
+        print_newline();
         return;
     }
+
+    memcpy(read_request.name, target_file_name_parsed.word, target_file_name_parsed.length);
     memcpy(read_request.ext, target_file_name_extension.word, target_file_name_extension.length);
 
-    int32_t retcode;
+    int8_t retcode;
 
     syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
 
@@ -641,13 +671,32 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         syscall(5, (uint32_t)read_request.buf, read_request.buffer_size, 0xF);
         print_newline();
     }
+    else if (retcode == 1)
+    {
+        syscall(5, (uint32_t) "Error: not a file.", 18, 0xF);
+        print_newline();
+    }
+    else if (retcode == 2)
+    {
+        syscall(5, (uint32_t) "Error: not enough buffer size.", 30, 0xF);
+        print_newline();
+    }
+    else if (retcode == 3)
+    {
+        syscall(5, (uint32_t) "Error: file not found.", 22, 0xF);
+        print_newline();
+    }
+    else if (retcode == 4)
+    {
+        syscall(5, (uint32_t) "Error: parent cluster not valid.", 31, 0xF);
+        print_newline();
+    }
     else
     {
-        syscall(5, (uint32_t) "File not found", 14, 0xF);
+        syscall(5, (uint32_t) "Error: unknown error.", 21, 0xF);
         print_newline();
     }
 }
-
 
 /**
  * Calling syscall type-5 for printing the path after whereis command
@@ -673,7 +722,7 @@ void print_path(uint32_t cluster_number)
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    int32_t retcode;
+    uint8_t retcode;
     syscall(6, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
@@ -686,10 +735,20 @@ void print_path(uint32_t cluster_number)
     }
 }
 
-void cp_command(struct CurrentDirectoryInfo *source_dir,
-                struct ParseString *source_name,
-                struct CurrentDirectoryInfo *dest_dir,
-                struct ParseString *dest_name)
+/**
+ * cp command in shell, copy the file in specified source directory to the specified destination directory with new name
+ * @param source_dir    directory of file to be copied
+ * @param source_name   name of file to be copied in the specified directory
+ * @param dest_dir      write destination directory of file to be copied
+ * @param dest_name     name of file to be written in the destination directory
+ * @return  0: copy succeeded
+ *          1: unable to read file
+ *          2: unable to write file
+ */
+uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
+                   struct ParseString *source_name,
+                   struct CurrentDirectoryInfo *dest_dir,
+                   struct ParseString *dest_name)
 {
     // prepare buffer in memory for copying
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
@@ -704,14 +763,14 @@ void cp_command(struct CurrentDirectoryInfo *source_dir,
     splitcode = split_filename_extension(source_name, &name, &ext);
     if (splitcode == 2 || splitcode == 3)
     {
-        char msg[] = "Source file not found!\n";
-        syscall(5, (uint32_t)msg, 19, 0xF);
-        return;
+        char msg[] = "Source file not found.\n";
+        syscall(5, (uint32_t)msg, 24, 0xF);
+        return 1;
     }
 
     // prepare read file request
     struct FAT32DriverRequest read_request = {
-        .buf = &cl,
+        .buf = cl,
         // .name = EMPTY_NAME,
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = source_dir->current_cluster_number,
@@ -721,7 +780,7 @@ void cp_command(struct CurrentDirectoryInfo *source_dir,
     memcpy(read_request.ext, ext.word, ext.length);
 
     // copy file to buffer memory
-    int32_t retcode;
+    int8_t retcode;
     syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
@@ -733,14 +792,14 @@ void cp_command(struct CurrentDirectoryInfo *source_dir,
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if (splitcode == 2 || splitcode == 3)
         {
-            char msg[] = "Source file not found!\n";
-            syscall(5, (uint32_t)msg, 19, 0xF);
-            return;
+            char msg[] = "Source file not found.\n";
+            syscall(5, (uint32_t)msg, 24, 0xF);
+            // return;
         }
 
         // prepare write file request
         struct FAT32DriverRequest write_request = {
-            .buf = &cl,
+            .buf = cl,
             // .name = EMPTY_NAME,
             .ext = EMPTY_EXTENSION,
             .parent_cluster_number = dest_dir->current_cluster_number,
@@ -751,17 +810,64 @@ void cp_command(struct CurrentDirectoryInfo *source_dir,
 
         // copy file from memory to disk
         syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
+
         if (retcode)
         {
+            if (retcode == 1)
+            {
+                char msg[] = "File/folder already exists.\n";
+                syscall(5, (uint32_t)msg, 29, 0xF);
+            }
+
+            else if (retcode == 3)
+            {
+                char msg[] = "Forbidden file/folder name.\n";
+                syscall(5, (uint32_t)msg, 29, 0xF);
+            }
+
+            else
+            {
+                char msg[] = "Unknown error.\n";
+                syscall(5, (uint32_t)msg, 16, 0xF);
+            }
+            return 2;
         }
     }
+
     else
     {
-        // try read folder
+        if (retcode == 2)
+        {
+            char msg[] = "Not enough buffer.\n";
+            syscall(5, (uint32_t)msg, 20, 0xF);
+        }
+
+        else if (retcode == -1)
+        {
+            char msg[] = "Unknown error.\n";
+            syscall(5, (uint32_t)msg, 16, 0xF);
+        }
+
+        else
+        {
+            char msg[] = "Source file not found.\n";
+            syscall(5, (uint32_t)msg, 24, 0xF);
+        }
+
+        return 1;
     }
+
+    return 0;
 }
 
-void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
+/**
+ * rm command in shell, removes the specified file in the specified directory
+ * @param file_dir  directory of file to be removed
+ * @param file_name name of file in the specified directory to be removed
+ *
+ * @return  -
+ */
+int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -771,22 +877,46 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
     splitcode = split_filename_extension(file_name, &name, &ext);
     if (splitcode == 2 || splitcode == 3)
     {
-        char msg[] = "Source file not found!\n";
-        syscall(5, (uint32_t)msg, 19, 0xF);
-        return;
+        char msg[] = "Source file not found.\n";
+        syscall(5, (uint32_t)msg, 24, 0xF);
+        return 1;
     }
 
     // create delete request
     struct FAT32DriverRequest delete_request = {
-        // .name = EMPTY_NAME,
+        .name = EMPTY_NAME,
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = file_dir->current_cluster_number,
     };
     memcpy(delete_request.name, name.word, name.length);
     memcpy(delete_request.ext, ext.word, ext.length);
 
-    int32_t retcode;
+    int8_t retcode;
+
     syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+
+    if (retcode != 0)
+    {
+        if (retcode == 2)
+        {
+            char msg[] = "Folder is not empty.\n";
+            syscall(5, (uint32_t)msg, 22, 0xF);
+        }
+
+        else if (retcode == -1)
+        {
+            char msg[] = "Unknown error.\n";
+            syscall(5, (uint32_t)msg, 16, 0xF);
+        }
+
+        else
+        {
+            char msg[] = "File/folder not found.\n";
+            syscall(5, (uint32_t)msg, 24, 0xF);
+        }
+    }
+
+    return retcode;
 }
 
 void mv_command(struct CurrentDirectoryInfo *source_dir,
@@ -794,12 +924,13 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                 struct CurrentDirectoryInfo *dest_dir,
                 struct ParseString *dest_name)
 {
-    cp_command(source_dir,
-               source_name,
-               dest_dir,
-               dest_name);
+    uint8_t res = cp_command(source_dir,
+                             source_name,
+                             dest_dir,
+                             dest_name);
 
-    rm_command(source_dir, source_name);
+    if (res == 0)
+        rm_command(source_dir, source_name);
 }
 
 /**
@@ -866,6 +997,7 @@ int main(void)
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
 
     char too_many_args_msg[] = "Too many arguments\n";
+    char missing_args_msg[] = "Missing argument(s)\n";
 
     struct CurrentDirectoryInfo current_directory_info =
         {
@@ -915,19 +1047,18 @@ int main(void)
 
             if (commandNumber == -1)
             {
-                char msg[] = "Command not found!\n";
+                char msg[] = "Command not found.\n";
                 syscall(5, (uint32_t)msg, 19, 0xF);
             }
 
             else
             {
-
                 if (commandNumber == 0)
                 {
                     if (argsCount == 1)
                     {
                         cd_command(buf, (uint32_t)0, &current_directory_info);
-                    } 
+                    }
                     else if (argsCount == 2)
                     {
                         cd_command(buf, word_indexes + 1, &current_directory_info);
@@ -940,8 +1071,8 @@ int main(void)
                 else if (commandNumber == 1)
                 {
                     if (argsCount == 1)
-                        ls_command(buf, (uint32_t) 0, current_directory_info);
-                    
+                        ls_command(buf, (uint32_t)0, current_directory_info);
+
                     else if (argsCount == 2)
                         ls_command(buf, word_indexes + 1, current_directory_info);
                     else
@@ -950,74 +1081,177 @@ int main(void)
 
                 else if (commandNumber == 2)
                 {
+                    if (argsCount == 1)
+                    {
+                        syscall(5, (uint32_t) "Please give the folder path and name.\n", 39, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 2)
+                    {
+                        mkdir_command(buf, word_indexes + 1, current_directory_info);
+                    }
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        print_newline();
+                    }
                 }
 
                 else if (commandNumber == 3)
                 {
+                    if (argsCount == 1)
+                    {
+                        syscall(5, (uint32_t) "Please give the file path and name.\n", 39, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 2)
+                    {
+                        cat_command(buf, word_indexes + 1, current_directory_info);
+                    }
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        print_newline();
+                    }
                 }
 
                 else if (commandNumber == 4)
                 {
                     // cp_command
-                    struct CurrentDirectoryInfo source_dir = current_directory_info;
-                    struct CurrentDirectoryInfo dest_dir = current_directory_info;
 
-                    struct ParseString source_name;
-                    struct ParseString dest_name;
+                    if (argsCount < 3)
+                    {
+                        syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                    }
 
-                    // get source directory info & source file name
-                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-                    parse_path_for_cd(buf, word_indexes, new_path_indexes);
-                    invoke_cd(buf, word_indexes[1].index, new_path_indexes, &source_dir, &source_name);
+                    else if (argsCount == 3)
+                    {
 
-                    // get destination directory info & source file name
-                    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    parse_path_for_cd(buf, word_indexes+1, new_path_indexes);
-                    invoke_cd(buf, word_indexes[2].index, new_path_indexes, &dest_dir, &dest_name);
+                        struct CurrentDirectoryInfo source_dir = {
+                            .current_cluster_number = current_directory_info.current_cluster_number};
+                        struct CurrentDirectoryInfo dest_dir = {
+                            .current_cluster_number = current_directory_info.current_cluster_number};
 
-                    // invoke cp command
-                    cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        struct ParseString source_name;
+                        struct ParseString dest_name;
+
+                        // get source directory info & source file name
+                        invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
+
+                        // get destination directory info & source file name
+                        invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
+
+                        // invoke cp command
+                        cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                    }
+
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                    }
                 }
 
                 else if (commandNumber == 5)
                 {
                     // rm_command
-                    struct CurrentDirectoryInfo target_dir = current_directory_info;
 
-                    struct ParseString target_name;
+                    if (argsCount < 2)
+                    {
+                        syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                    }
 
-                    // get source directory info & source file name
-                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-                    parse_path_for_cd(buf, word_indexes, new_path_indexes);
-                    invoke_cd(buf, word_indexes[1].index, new_path_indexes, &target_dir, &target_name);
+                    else
+                    {
 
-                    // invoke cp command
-                    rm_command(&target_dir, &target_name);
+                        if (argsCount == 2)
+                        {
+                            if (memcmp(buf + word_indexes[1].index, "-", 1) == 0)
+                            {
+                                syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                            }
+
+                            else
+                            {
+                                struct CurrentDirectoryInfo target_dir;
+                                copy_directory_info(&target_dir, &current_directory_info);
+
+                                struct ParseString target_name = {};
+                                reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
+
+                                // get source directory info & source file name
+                                invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
+
+                                // invoke rm command
+                                rm_command(&target_dir, &target_name);
+                            }
+                        }
+
+                        else if (argsCount == 3)
+                        {
+                            if (word_indexes[1].length == 2 && memcmp(buf + word_indexes[1].index, "-r", 2) == 0)
+                            {
+                                // PAKAI WORD_INDEXES[2] SEBAGAI INDEKS AWAL PARAMETER PATH
+                                char invalid_flag_msg[] = "Recursive rm.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
+
+                            else if (word_indexes[2].length == 2 && memcmp(buf + word_indexes[2].index, "-r", 2) == 0)
+                            {
+                                // PAKAI WORD_INDEXES[1] SEBAGAI INDEKS AWAL PARAMETER PATH
+                                char invalid_flag_msg[] = "Recursive rm.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
+
+                            else if (memcmp(buf + word_indexes[1].index, "-", 1) == 0 || memcmp(buf + word_indexes[2].index, "-", 1) == 0)
+                            {
+                                char invalid_flag_msg[] = "Invalid flag.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
+
+                            else
+                            {
+                                syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                            }
+                        }
+
+                        else
+                        {
+                            syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        }
+                    }
                 }
 
                 else if (commandNumber == 6)
                 {
                     // mv_command
-                    struct CurrentDirectoryInfo source_dir = current_directory_info;
-                    struct CurrentDirectoryInfo dest_dir = current_directory_info;
+                    if (argsCount == 1)
+                    {
+                        syscall(5, (uint32_t) "Please give the source and destination path.", 44, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 2)
+                    {
+                        syscall(5, (uint32_t) "Please give the destination path.", 33, 0xF);
+                        print_newline();
+                    }
+                    else if (argsCount == 3)
+                    {
+                        struct CurrentDirectoryInfo source_dir = {};
+                        struct CurrentDirectoryInfo dest_dir = {};
 
-                    struct ParseString source_name;
-                    struct ParseString dest_name;
+                        copy_directory_info(&source_dir, &current_directory_info);
+                        copy_directory_info(&dest_dir, &current_directory_info);
 
-                    // get source directory info & source file name
-                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-                    parse_path_for_cd(buf, word_indexes, new_path_indexes);
-                    invoke_cd(buf, word_indexes[1].index, new_path_indexes, &source_dir, &source_name);
+                        struct ParseString source_name = {};
+                        struct ParseString dest_name = {};
 
-                    // get destination directory info & source file name
-                    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    parse_path_for_cd(buf, word_indexes+1, new_path_indexes);
-                    invoke_cd(buf, word_indexes[2].index, new_path_indexes, &dest_dir, &dest_name);
+                        // get source directory info & source file name
+                        invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
 
-                    // invoke cp command
-                    mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        // get destination directory info & source file name
+                        invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
+                     }
                 }
-
                 else if (commandNumber == 7)
                 {
                     /* whereis Command */
@@ -1046,10 +1280,6 @@ int main(void)
                 else if (commandNumber == 8)
                 {
                 }
-            }
-
-            if (current_directory_info.current_cluster_number)
-            {
             }
         }
     }
