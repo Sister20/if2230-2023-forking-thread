@@ -41,7 +41,7 @@ void kernel_setup(void)
     memcpy(req.name, "f3", 2);
     write(req);
 
-    uint32_t f1 = 0xb;
+    uint32_t f1 = 0xc;
     // move parent to f1
     req.parent_cluster_number = f1;
 
