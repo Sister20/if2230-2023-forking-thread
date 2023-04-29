@@ -579,6 +579,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     uint8_t cd_res = invoke_cd(buf, indexes, &target_directory, &target_name);
 
     if (cd_res == 0)
+        return;
 
     // create new directory in the target_directory
     struct FAT32DriverRequest write_request = {
@@ -587,7 +588,6 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
         .parent_cluster_number = target_directory.current_cluster_number,
         .buffer_size = 0,
     };
-
 
     memcpy(write_request.name, target_name.word, target_name.length);
 
@@ -647,7 +647,6 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     struct ParseString target_filename = {};
     set_ParseString(&target_filename, target_name.word, target_name.length);
-
     struct ParseString target_file_name_parsed = {};
     struct ParseString target_file_name_extension = {};
     int split_result = split_filename_extension(&target_filename, &target_file_name_parsed, &target_file_name_extension);
