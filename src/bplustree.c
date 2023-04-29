@@ -394,6 +394,7 @@ void initialize_b_tree(struct NodeFileSystem *root, char *dir_name, uint32_t par
         for (uint32_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && counter_entry < dir_table[0].table[0].n_of_entries; j++)
         {
             counter_entry++;
+            root = BPlusTree;
             if (dir_table[i].table[j].attribute == ATTR_SUBDIRECTORY)
             {
                 BPlusTree = insert(root, dir_table[i].table[j].name, dir_table[i].table[j].ext, dir_cluster_number);
@@ -406,7 +407,8 @@ void initialize_b_tree(struct NodeFileSystem *root, char *dir_name, uint32_t par
             }
             else if (!is_entry_empty(&dir_table[i].table[j]))
             {
-                insert(root, dir_table[i].table[j].name, dir_table[i].table[j].ext, dir_cluster_number);
+                BPlusTree = insert(root, dir_table[i].table[j].name, dir_table[i].table[j].ext, dir_cluster_number);
+                root = BPlusTree;
             }
         }
     }
