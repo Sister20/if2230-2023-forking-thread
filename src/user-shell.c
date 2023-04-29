@@ -924,6 +924,7 @@ int main(void)
     struct IndexInfo word_indexes[INDEXES_MAX_COUNT];
 
     char too_many_args_msg[] = "Too many arguments\n";
+    char missing_args_msg[] = "Missing argument(s)\n";
 
     struct CurrentDirectoryInfo current_directory_info =
         {
@@ -1045,38 +1046,84 @@ int main(void)
                 else if (commandNumber == 4)
                 {
                     // cp_command
-                    struct CurrentDirectoryInfo source_dir = {
-                        .current_cluster_number = current_directory_info.current_cluster_number};
-                    struct CurrentDirectoryInfo dest_dir = {
-                        .current_cluster_number = current_directory_info.current_cluster_number};
 
-                    struct ParseString source_name;
-                    struct ParseString dest_name;
+                    if (argsCount < 3)
+                    {
+                        syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                    }
 
-                    // get source directory info & source file name
-                    invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
+                    else if (argsCount == 3)
+                    {
 
-                    // get destination directory info & source file name
-                    invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
+                        struct CurrentDirectoryInfo source_dir = {
+                            .current_cluster_number = current_directory_info.current_cluster_number};
+                        struct CurrentDirectoryInfo dest_dir = {
+                            .current_cluster_number = current_directory_info.current_cluster_number};
 
-                    // invoke cp command
-                    cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        struct ParseString source_name;
+                        struct ParseString dest_name;
+
+                        // get source directory info & source file name
+                        invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
+
+                        // get destination directory info & source file name
+                        invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
+
+                        // invoke cp command
+                        cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                    }
+
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                    }
                 }
 
                 else if (commandNumber == 5)
                 {
                     // rm_command
-                    struct CurrentDirectoryInfo target_dir;
-                    copy_directory_info(&target_dir, &current_directory_info);
 
-                    struct ParseString target_name = {};
-                    reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
+                    if (argsCount < 2)
+                    {
+                        syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                    }
 
-                    // get source directory info & source file name
-                    invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
+                    else
+                    {
+                        bool isFlagFound = FALSE;
 
-                    // invoke rm command
-                    rm_command(&target_dir, &target_name);
+                        if (argsCount == 2)
+                        {
+                            if (isFlagFound)
+                            {
+                                syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
+                            }
+
+                            else
+                            {
+                                struct CurrentDirectoryInfo target_dir;
+                                copy_directory_info(&target_dir, &current_directory_info);
+
+                                struct ParseString target_name = {};
+                                reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
+
+                                // get source directory info & source file name
+                                invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
+
+                                // invoke rm command
+                                rm_command(&target_dir, &target_name);
+                            }
+                        }
+
+                        else if (argsCount == 3)
+                        {
+                        }
+
+                        else
+                        {
+                            syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        }
+                    }
                 }
 
                 else if (commandNumber == 6)
