@@ -805,10 +805,9 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
     splitcode = split_filename_extension(source_name, &name, &ext);
     if (splitcode == 2 || splitcode == 3)
     {
-        char msg[] = "Source file not found!\n";
+        char msg[] = "Source file not found.\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
-
-        // return;
+        return 1;
     }
 
     // prepare read file request
@@ -835,7 +834,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if (splitcode == 2 || splitcode == 3)
         {
-            char msg[] = "Source file not found!\n";
+            char msg[] = "Source file not found.\n";
             syscall(5, (uint32_t)msg, 24, 0xF);
             // return;
         }
@@ -853,14 +852,53 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 
         // copy file from memory to disk
         syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
+
         if (retcode)
         {
+            if (retcode == 1)
+            {
+                char msg[] = "File/folder already exists.\n";
+                syscall(5, (uint32_t)msg, 29, 0xF);
+            }
+
+            else if (retcode == 3)
+            {
+                char msg[] = "Forbidden file/folder name.\n";
+                syscall(5, (uint32_t)msg, 29, 0xF);
+            }
+
+            else
+            {
+                char msg[] = "Unknown error.\n";
+                syscall(5, (uint32_t)msg, 16, 0xF);
+            }
+            return 2;
         }
     }
+
     else
     {
-        // try read folder
+        if (retcode == 2)
+        {
+            char msg[] = "Not enough buffer.\n";
+            syscall(5, (uint32_t)msg, 20, 0xF);
+        }
+
+        else if (retcode == -1)
+        {
+            char msg[] = "Unknown error.\n";
+            syscall(5, (uint32_t)msg, 16, 0xF);
+        }
+
+        else
+        {
+            char msg[] = "Source file not found.\n";
+            syscall(5, (uint32_t)msg, 24, 0xF);
+        }
+
+        return 1;
     }
+
     return 0;
 }
 
@@ -881,7 +919,7 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
     splitcode = split_filename_extension(file_name, &name, &ext);
     if (splitcode == 2 || splitcode == 3)
     {
-        char msg[] = "Source file not found!\n";
+        char msg[] = "Source file not found.\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
         return 1;
     }
@@ -896,7 +934,30 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
     memcpy(delete_request.ext, ext.word, ext.length);
 
     int8_t retcode;
+
     syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+
+    if (retcode != 0)
+    {
+        if (retcode == 2)
+        {
+            char msg[] = "Folder is not empty.\n";
+            syscall(5, (uint32_t)msg, 22, 0xF);
+        }
+
+        else if (retcode == -1)
+        {
+            char msg[] = "Unknown error.\n";
+            syscall(5, (uint32_t)msg, 16, 0xF);
+        }
+
+        else
+        {
+            char msg[] = "File/folder not found.\n";
+            syscall(5, (uint32_t)msg, 24, 0xF);
+        }
+
+    }
 
     return retcode;
 }
@@ -906,12 +967,12 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                 struct CurrentDirectoryInfo *dest_dir,
                 struct ParseString *dest_name)
 {
-    cp_command(source_dir,
+    uint8_t res = cp_command(source_dir,
                source_name,
                dest_dir,
                dest_name);
 
-    rm_command(source_dir, source_name);
+    if (res == 0) rm_command(source_dir, source_name);
 }
 
 int main(void)
@@ -971,13 +1032,12 @@ int main(void)
 
             if (commandNumber == -1)
             {
-                char msg[] = "Command not found!\n";
+                char msg[] = "Command not found.\n";
                 syscall(5, (uint32_t)msg, 19, 0xF);
             }
 
             else
             {
-
                 if (commandNumber == 0)
                 {
                     if (argsCount == 1)
@@ -1008,7 +1068,7 @@ int main(void)
                 {
                     if (argsCount == 1)
                     {
-                        syscall(5, (uint32_t) "Please give the folder path and name!\n", 39, 0xF);
+                        syscall(5, (uint32_t) "Please give the folder path and name.\n", 39, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 2)
@@ -1026,7 +1086,7 @@ int main(void)
                 {
                     if (argsCount == 1)
                     {
-                        syscall(5, (uint32_t) "Please give the file path and name!\n", 39, 0xF);
+                        syscall(5, (uint32_t) "Please give the file path and name.\n", 39, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 2)
@@ -1166,10 +1226,6 @@ int main(void)
                 else if (commandNumber == 7)
                 {
                 }
-            }
-
-            if (current_directory_info.current_cluster_number)
-            {
             }
         }
     }
