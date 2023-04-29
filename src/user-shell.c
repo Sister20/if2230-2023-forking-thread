@@ -517,7 +517,7 @@ uint8_t invoke_cd(char *buf,
     int new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
     target_name->length = new_path_indexes[last_word_index].length;
 
-    memcpy(target_name->word, buf + last_word_index, target_name->length);
+    memcpy(target_name->word, buf + new_path_indexes[last_word_index].index, target_name->length);
 
     if (get_words_count(new_path_indexes) > 1)
     {
@@ -772,7 +772,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 
     // prepare read file request
     struct FAT32DriverRequest read_request = {
-        .buf = &cl,
+        .buf = cl,
         // .name = EMPTY_NAME,
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = source_dir->current_cluster_number,
@@ -801,7 +801,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 
         // prepare write file request
         struct FAT32DriverRequest write_request = {
-            .buf = &cl,
+            .buf = cl,
             // .name = EMPTY_NAME,
             .ext = EMPTY_EXTENSION,
             .parent_cluster_number = dest_dir->current_cluster_number,
@@ -830,7 +830,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
  *
  * @return  -
  */
-void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
+int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -842,7 +842,7 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
     {
         char msg[] = "Source file not found!\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
-        return;
+        return 1;
     }
 
     // create delete request
@@ -854,8 +854,10 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
     memcpy(delete_request.name, name.word, name.length);
     memcpy(delete_request.ext, ext.word, ext.length);
 
-    int32_t retcode;
+    int8_t retcode;
     syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+
+    return retcode;
 }
 
 void mv_command(struct CurrentDirectoryInfo *source_dir,
