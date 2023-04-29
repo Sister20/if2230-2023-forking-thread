@@ -828,6 +828,7 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = file_dir->current_cluster_number,
     };
+
     memcpy(delete_request.name, name.word, name.length);
     memcpy(delete_request.ext, ext.word, ext.length);
 
@@ -1041,7 +1042,7 @@ int main(void)
                     // get source directory info & source file name
                     struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
                     parse_path_for_cd(buf, word_indexes, new_path_indexes);
-                    invoke_cd(buf, word_indexes[1].index, new_path_indexes, &target_dir, &target_name);
+                    invoke_cd(buf, new_path_indexes, &target_dir, &target_name);
 
                     // invoke rm recursive command
                     rm_command(&target_dir, &target_name, TRUE);
