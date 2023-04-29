@@ -508,9 +508,6 @@ uint8_t invoke_cd(char *buf,
     int new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
     target_name->length = new_path_indexes[last_word_index].length;
 
-    char target_name_word[target_name->length];
-    memcpy(target_name->word, target_name_word, target_name->length);
-
     for (int j = new_path_indexes[last_word_index].index; j < new_path_indexes[last_word_index].index + new_path_indexes[last_word_index].length; j++)
     {
         target_name->word[j - new_path_indexes[last_word_index].index] = buf[j];
