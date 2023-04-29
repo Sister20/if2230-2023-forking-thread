@@ -42,6 +42,7 @@ kernel:
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/keyboard.c -o $(OUTPUT_FOLDER)/keyboard.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/fat32.c -o $(OUTPUT_FOLDER)/fat32.o
+	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/bplustree.c -o $(OUTPUT_FOLDER)/bplustree.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/disk.c -o $(OUTPUT_FOLDER)/disk.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/cmosrtc.c -o $(OUTPUT_FOLDER)/cmosrtc.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/paging.c -o $(OUTPUT_FOLDER)/paging.o
@@ -72,7 +73,7 @@ disk:
 
 inserter:
 	@$(CC) -Wno-builtin-declaration-mismatch -g \
-		$(SOURCE_FOLDER)/stdmem.c $(SOURCE_FOLDER)/fat32.c $(SOURCE_FOLDER)/cmosrtc.c $(SOURCE_FOLDER)/portio.c \
+		$(SOURCE_FOLDER)/stdmem.c $(SOURCE_FOLDER)/fat32.c $(SOURCE_FOLDER)/bplustree.c $(SOURCE_FOLDER)/cmosrtc.c $(SOURCE_FOLDER)/portio.c \
 		$(SOURCE_FOLDER)/external-inserter.c \
 		-o $(OUTPUT_FOLDER)/inserter
 

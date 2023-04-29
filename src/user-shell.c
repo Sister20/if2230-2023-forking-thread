@@ -2,6 +2,7 @@
 #include "lib-header/fat32.h"
 #include "lib-header/stdmem.h"
 #include "lib-header/framebuffer.h"
+#include "lib-header/bplustree.h"
 
 #define SHELL_BUFFER_SIZE 256
 #define COMMAND_MAX_SIZE 32
@@ -557,9 +558,9 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     // temporary CurrentDirectoryInfo for creating the new directory
     struct CurrentDirectoryInfo target_directory = {};
     copy_directory_info(&target_directory, info);
-    char target_name[target_name_length];
+    struct ParseString target_name;
 
-    invoke_cd(buf, 6, new_path_indexes, &target_directory, target_name);
+    invoke_cd(buf, 6, new_path_indexes, &target_directory, &target_name);
 
     // create new directory in the target_directory
     struct ClusterBuffer cl[5];
@@ -570,7 +571,7 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    memcpy(write_request.name, target_name, target_name_length);
+    memcpy(write_request.name, target_name.word, target_name_length);
 
     int32_t retcode;
 
@@ -605,9 +606,9 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     struct CurrentDirectoryInfo target_directory = {};
     copy_directory_info(&target_directory, info);
     int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
-    char target_name[target_name_length];
+    struct ParseString target_name;
 
-    invoke_cd(buf, 6, new_path_indexes, &target_directory, target_name);
+    invoke_cd(buf, 6, new_path_indexes, &target_directory, &target_name);
 
     // read the file from FATtable
     struct ClusterBuffer cl[5];
@@ -618,12 +619,12 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
     };
 
     struct ParseString target_filename = {};
-    set_ParseString(&target_filename, target_name, target_name_length);
+    set_ParseString(&target_filename, target_name.word, target_name_length);
     struct ParseString target_file_name_parsed = {};
     struct ParseString target_file_name_extension = {};
     int split_result = split_filename_extension(&target_filename, &target_file_name_parsed, &target_file_name_extension);
 
-    memcpy(read_request.name, target_name, target_name_length);
+    memcpy(read_request.name, target_name.word, target_name_length);
     if (split_result != 0 && split_result != 1)
     {
         syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
@@ -646,56 +647,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         print_newline();
     }
 }
-/**
- * Traverse all directories from ROOT to find a folder or file with name equals to target_name
- *
- * @param target_name           file or folder name
- * @param parent_cluster_number parent cluster number for the corresponding folder
- *
- * @return 0                     : target_name not found;
- *         parent_cluster_number : target_name found at file or folder with parent_cluster_number;
- */
-uint32_t traverse_directories(char *target_name, uint32_t parent_cluster_number)
-{
-    bool is_found = 0;
-    struct ClusterBuffer cl[10];
-    struct FAT32DriverRequest read_folder_request = {
-        .buf = &cl,
-        .ext = EMPTY_EXTENSION,
-        .parent_cluster_number = parent_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 10,
-    };
 
-    memcpy(read_folder_request.name, target_name, sizeof(target_name));
-
-    int32_t retcode;
-    syscall(1, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
-
-    if (retcode == 0)
-    {
-        struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
-
-        uint32_t counter_entry = 0;
-        for (uint32_t i = 0; i < 10 && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
-        {
-            for (uint32_t j = 1; j < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !is_found && counter_entry < dir_table[0].table[0].n_of_entries; i++)
-            {
-                counter_entry++;
-                if (memcmp(dir_table[i].table[j].name, target_name, sizeof(target_name)) == 0)
-                {
-                    is_found = parent_cluster_number;
-                }
-                else if (dir_table[i].table[j].attribute == ATTR_SUBDIRECTORY)
-                {
-                    is_found = traverse_directories(target_name, (dir_table[i].table[j].cluster_high << 16) +
-                                                                     dir_table[i].table[j].cluster_low);
-                }
-            }
-        }
-    }
-
-    return is_found;
-}
 
 /**
  * Calling syscall type-5 for printing the path after whereis command
@@ -709,7 +661,7 @@ void print_path(uint32_t cluster_number)
     // root found - base condition
     if (cluster_number == ROOT_CLUSTER_NUMBER)
     {
-        syscall(5, (uint32_t) "/", 1, 0xF);
+        print_newline();
         return;
     }
 
@@ -731,7 +683,6 @@ void print_path(uint32_t cluster_number)
         print_path((dir_table->table->cluster_high << 16) + dir_table->table->cluster_low);
         syscall(5, (uint32_t) "/", 1, 0xF);
         syscall(5, (uint32_t)dir_table->table->name, 8, 0xF);
-        print_newline();
     }
 }
 
@@ -849,6 +800,63 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                dest_name);
 
     rm_command(source_dir, source_name);
+}
+
+/**
+ * Handling command whereis in shell
+ *
+ * @param source_name target name to find
+ *
+ * @return 0 if no target found, 1 if target found
+ */
+uint32_t whereis_command(struct ParseString *source_name){
+    // Create Search Request
+    struct RequestSearch search_request = {};
+
+    // Assign target name to search request
+    memcpy(search_request.search, source_name->word, 8);
+
+    // Syscall to search target paths
+    syscall(7, (uint32_t)&search_request, 0, 0);
+
+    // If no target found
+    if(search_request.result.n_of_items == 0){
+        return 0;
+    }
+
+    // Define colon and dot
+    char colon[1] = {':'};
+    char dot[1] = {'.'};
+
+    // Print target name and colon
+    syscall(5, (uint32_t)source_name, 8, 0xF);
+    syscall(5, (uint32_t)colon, 1, 0xF);
+
+    // Iterate all paths
+    uint32_t idx = 0;
+    while(idx < search_request.result.n_of_items){
+        // Print path directory
+        print_path(search_request.result.parent_cluster_number[idx]);
+
+        // Print target name
+        syscall(5, (uint32_t) "/", 1, 0xF);
+        syscall(5, (uint32_t)source_name, 8, 0xF);
+
+        // If target is file, print dot
+        if(memcmp(search_request.result.ext[idx], "\0\0\0", 3) != 0){
+            syscall(5, (uint32_t)dot, 1, 0xF);
+        }
+
+        // Print extension
+        syscall(5, (uint32_t)search_request.result.ext[idx], 3, 0xF);
+        idx++;
+    }
+    
+    // Print newline to add space
+    print_newline();
+    print_newline();
+
+    return 1;
 }
 
 int main(void)
@@ -1012,8 +1020,29 @@ int main(void)
 
                 else if (commandNumber == 7)
                 {
-                }
+                    /* whereis Command */
+                    // Argument must be only 2 words
+                    if (argsCount == 2)
+                    {
+                        // Setup search
+                        struct ParseString find_name;
+                        memcpy(find_name.word, buf + word_indexes[1].index, buf[word_indexes[1].length]);
+                        find_name.length = 8;
 
+                        // Execute whereis command
+                        uint32_t res = whereis_command(&find_name);
+
+                        // If no target found
+                        if(!res){
+                            char msg[] = "Target not found!\n";
+                            syscall(5, (uint32_t)msg, 18, 0xF);
+                        }
+                    } else {
+                        // If command is invalid
+                        char msg[] = "Invalid command whereis!\n";
+                        syscall(5, (uint32_t)msg, 25, 0xF);
+                    }
+                }
                 else if (commandNumber == 8)
                 {
                 }

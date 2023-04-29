@@ -34,31 +34,40 @@ void kernel_setup(void) {
     };
     write(req);
 
+    req.parent_cluster_number = 0xA;
     memcpy(req.name, "f2", 2);
     write(req);
 
+    req.parent_cluster_number = ROOT_CLUSTER_NUMBER;
+    req.buffer_size = 10;
     memcpy(req.name, "f3", 2);
+    memcpy(req.ext, "jav", 3);
     write(req);
 
-    // move parent to f1
-    req.parent_cluster_number = 0x9;
-    
+    // move parent to f2
+    req.parent_cluster_number = 0xB;
+    req.buffer_size = 0;
+    memcpy(req.ext, "\0\0\0", 3);
     memcpy(req.name, "f4", 2);
     write(req);
 
+    req.parent_cluster_number = 0xD;
+    req.buffer_size = 10;
     memcpy(req.name, "f5", 2);
+    memcpy(req.ext, "jir", 3);
     write(req);
 
     // move parent to f1
-    req.parent_cluster_number = 0xc;
+    req.parent_cluster_number = 0xB;
     
-    memcpy(req.name, "f6", 2);
+    memcpy(req.name, "f4", 2);
+    memcpy(req.ext, "gob", 3);
     write(req);
 
-    req.parent_cluster_number = 0xe;
-    memcpy(req.name, "f7", 2);
+    memcpy(req.name, "f5", 2);
+    memcpy(req.ext, "tot", 3);
     write(req);
-
+    
     // Write shell into memory
     struct FAT32DriverRequest request = {
         .buf                   = (uint8_t*) 0,

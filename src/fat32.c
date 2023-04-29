@@ -89,6 +89,7 @@ const uint8_t fs_signature[BLOCK_SIZE] = {
 
 static struct FAT32DriverState driver_state;
 static char empty_cluster_value[CLUSTER_SIZE];
+struct NodeFileSystem *BPlusTree;
 
 uint32_t cluster_to_lba(uint32_t cluster) {
   return cluster * CLUSTER_BLOCK_COUNT + BOOT_SECTOR;
@@ -124,6 +125,12 @@ void initialize_filesystem_fat32(void) {
   // Move the FAT table from storage to the driver state
   read_clusters(&driver_state.fat_table, 1, 1);
 
+  // Initialize B+ Tree
+  BPlusTree = make_tree("root\0\0\0\0", "\0\0\0", 2);
+  initialize_b_tree(BPlusTree, "root\0\0\0\0", 2, 2);
+  
+  struct NodeFileSystem *tes = BPlusTree;
+  if(tes->leaf){}
   // Initialize static array for empty clusters
   for (int i = 0; i < CLUSTER_SIZE; i++) {
     empty_cluster_value[i] = 0;
@@ -900,57 +907,3 @@ void set_access_datetime(struct FAT32DirectoryEntry *entry) {
   entry->access_date = ((FTTimestamp & 0xFFFF0000) >> 16);
   entry->access_time = (FTTimestamp & 0x0000FFFF);
 }
-
-// uint32_t read_cluster_number(char** directories, int count, uint16_t latest_parent_cluster_number) {
-
-//   // return ROOT_CLUSTER_NUMBER if not found
-
-//   read_clusters(&driver_state.dir_table_buf, latest_parent_cluster_number, 1);
-
-//   int i = 0;
-//   struct FAT32DirectoryEntry *entry;
-//   uint16_t current_cluster_number = latest_parent_cluster_number;
-
-//   // Find every directory table until the last one is found
-//   while (i < count)
-//   {
-//     bool found_matching_directory = FALSE;
-//     bool end_of_directory = FALSE;  
-//     uint16_t temp_cluster_number = current_cluster_number;
-
-//     while (!end_of_directory && !found_matching_directory) {
-
-//       // Traverse the table in examined cluster. Starts from 1 because the first
-//       // entry of the table is the directory itself
-//       for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry) && !found_matching_directory; i++) {
-//         entry = &(driver_state.dir_table_buf.table[i]);
-//         found_matching_directory = !is_entry_empty(entry) && (memcmp(entry->name, directories[i], 8) == 0) && is_subdirectory(entry);
-//       }
-
-//       // If the cluster_number is EOF, then we've finished examining the last
-//       // cluster of the directory
-//       end_of_directory = (driver_state.fat_table.cluster_map[temp_cluster_number] &
-//                           0x0000FFFF) == 0xFFFF;
-
-//       // If directory is found, get out of the loop
-//       if (found_matching_directory)
-//         continue;
-
-//       // Move onto the next cluster if it's not the end yet
-//       if (!end_of_directory) {
-//         temp_cluster_number = driver_state.fat_table.cluster_map[temp_cluster_number];
-//         read_clusters(&driver_state.dir_table_buf, (uint32_t)temp_cluster_number, 1);
-//       }
-//     }
-
-//     if (!found_matching_directory) {
-//       return ROOT_CLUSTER_NUMBER;
-//     }
-
-//     i++;
-//     current_cluster_number = entry->cluster_low;
-//   }
-  
-//   return current_cluster_number;
-
-// }
