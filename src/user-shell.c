@@ -525,27 +525,77 @@ uint8_t invoke_cd(char *buf,
 
     if (get_words_count(new_path_indexes) > 1 || buf[new_path_indexes[0].index - 1] == '/')
     {
-        int new_buf_length = new_path_indexes[last_word_index].index;
-        if (get_words_count(new_path_indexes) > 1)
-        {
-            new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
-        }
-
-        char new_buf[new_buf_length];
-        for (int i = 0; i < new_buf_length; i++)
-        {
-            new_buf[i] = buf[i];
-        }
-
-        struct IndexInfo new_buf_indexes[INDEXES_MAX_COUNT];
-        reset_indexes(new_buf_indexes, INDEXES_MAX_COUNT);
-        // [path_segment_1] [path_segment_2] [path_segment_3] ...
-        get_buffer_indexes(new_buf, new_buf_indexes, ' ', 0, new_buf_length);
+        struct IndexInfo new_indexes[INDEXES_MAX_COUNT];
+        memcpy(new_indexes, indexes, INDEXES_MAX_COUNT);
+        new_indexes[0].length -= target_name->length;
         // call cd command to move the directory
-        return cd_command(new_buf, new_buf_indexes + 1, target_directory);
+        return cd_command(buf, new_indexes, target_directory);
     }
 
     return 1;
+}
+
+uint32_t get_file_size(uint32_t current_cluster_number, char *current_folder_name, char *file_name, char *ext)
+{
+    // return 0 if not found
+
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
+
+    struct FAT32DriverRequest request = {
+        .buf = &cl,
+        .name = "root\0\0\0\0",
+        .ext = "\0\0\0",
+        .parent_cluster_number = current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
+    };
+
+    struct FAT32DirectoryTable *dir_table;
+
+    if (current_cluster_number > ROOT_CLUSTER_NUMBER)
+    {
+        syscall(6, (uint32_t)&request, 0, 0);
+
+        dir_table = request.buf;
+
+        memcpy(request.name, current_folder_name, DIRECTORY_NAME_LENGTH);
+
+        request.parent_cluster_number = dir_table->table->cluster_low;
+    }
+
+    int8_t retcode;
+
+    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
+
+    dir_table = request.buf;
+    uint32_t j = 0;
+    struct FAT32DirectoryEntry *entry;
+    bool found = FALSE;
+
+    while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
+    {
+        for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
+        {
+            entry = &dir_table[j].table[k];
+
+            if (entry->user_attribute != UATTR_NOT_EMPTY)
+                continue;
+
+            if (memcmp(entry->name, file_name, DIRECTORY_NAME_LENGTH) == 0 && memcmp(entry->ext, ext, EXTENSION_NAME_LENGTH) == 0)
+
+            {
+                found = TRUE;
+            }
+        }
+
+        j++;
+    }
+
+    if (!found)
+    {
+        return 0;
+    }
+
+    return entry->filesize;
 }
 
 /**
@@ -660,6 +710,22 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         print_newline();
         return;
     }
+    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
+    parse_path_for_cd(buf, indexes, new_path_indexes);
+
+    struct ClusterBuffer cl_read_folder[5];
+    struct FAT32DriverRequest read_folder_request = {
+        .buf = &cl_read_folder,
+        .ext = EMPTY_EXTENSION,
+        .parent_cluster_number = target_directory.current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * 5,
+    };
+
+    int8_t retcode_read_folder;
+    syscall(6, (uint32_t)&read_folder_request, (uint32_t)&retcode_read_folder, 0);
+    struct FAT32DirectoryTable *dir_table = read_folder_request.buf;
+
+    uint32_t file_size = get_file_size(target_directory.current_cluster_number, dir_table->table->name, target_file_name_parsed.word, target_file_name_extension.word);
 
     memcpy(read_request.name, target_file_name_parsed.word, target_file_name_parsed.length);
     memcpy(read_request.ext, target_file_name_extension.word, target_file_name_extension.length);
@@ -670,7 +736,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     if (retcode == 0)
     {
-        syscall(5, (uint32_t)read_request.buf, read_request.buffer_size, 0xF);
+        syscall(5, (uint32_t)read_request.buf, file_size, 0xF);
         print_newline();
     }
     else if (retcode == 1)
@@ -737,68 +803,6 @@ void print_path(uint32_t cluster_number)
     }
 }
 
-uint32_t get_file_size(uint32_t current_cluster_number, char *current_folder_name, char *file_name, char *ext)
-{
-    // return 0 if not found
-
-    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
-
-    struct FAT32DriverRequest request = {
-        .buf = &cl,
-        .name = "root\0\0\0\0",
-        .ext = "\0\0\0",
-        .parent_cluster_number = current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
-    };
-
-    struct FAT32DirectoryTable *dir_table;
-
-    if (current_cluster_number > ROOT_CLUSTER_NUMBER)
-    {
-        syscall(6, (uint32_t)&request, 0, 0);
-
-        dir_table = request.buf;
-
-        memcpy(request.name, current_folder_name, DIRECTORY_NAME_LENGTH);
-
-        request.parent_cluster_number = dir_table->table->cluster_low;
-    }
-
-    int8_t retcode;
-
-    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
-
-    dir_table = request.buf;
-    uint32_t j = 0;
-    struct FAT32DirectoryEntry *entry;
-    bool found = FALSE;
-
-    while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
-    {
-        for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
-        {
-            entry = &dir_table[j].table[k];
-
-            if (entry->user_attribute != UATTR_NOT_EMPTY)
-                continue;
-
-            if (memcmp(entry->name, file_name, DIRECTORY_NAME_LENGTH) == 0 && memcmp(entry->ext, ext, EXTENSION_NAME_LENGTH) == 0)
-
-            {
-                found = TRUE;
-            }
-        }
-
-        j++;
-    }
-
-    if (!found)
-    {
-        return 0;
-    }
-
-    return entry->filesize;
-}
 /**
  * cp command in shell, copy the file in specified source directory to the specified destination directory with new name
  * @param source_dir    directory of file to be copied
