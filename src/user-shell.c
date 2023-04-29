@@ -784,6 +784,68 @@ void print_path(uint32_t cluster_number)
     }
 }
 
+uint32_t get_file_size(uint32_t current_cluster_number, char* current_folder_name, char* file_name, char* ext)
+{
+    // return 0 if not found
+
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
+
+    struct FAT32DriverRequest request = {
+        .buf = &cl,
+        .name = "root\0\0\0\0",
+        .ext = "\0\0\0",
+        .parent_cluster_number = current_cluster_number,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
+    };
+
+    struct FAT32DirectoryTable *dir_table;
+
+    if (current_cluster_number > ROOT_CLUSTER_NUMBER)
+    {
+        syscall(6, (uint32_t)&request, 0, 0);
+
+        dir_table = request.buf;
+
+        memcpy(request.name, current_folder_name, DIRECTORY_NAME_LENGTH);
+
+        request.parent_cluster_number = dir_table->table->cluster_low;
+    }
+
+    int8_t retcode;
+
+    syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
+
+    dir_table = request.buf;
+    uint32_t j = 0;
+    struct FAT32DirectoryEntry *entry;
+    bool found = FALSE;
+
+    while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
+    {
+        for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
+        {
+             entry = &dir_table[j].table[k];
+
+            if (entry->user_attribute != UATTR_NOT_EMPTY)
+                continue;
+
+            if (memcmp(entry->name, file_name, DIRECTORY_NAME_LENGTH) == 0 && memcmp(entry->ext, ext, EXTENSION_NAME_LENGTH) == 0)
+
+            {
+                found = TRUE;
+            }
+        }
+
+        j++;
+    }
+
+    if (!found)
+    {
+        return 0;
+    }
+
+    return entry->filesize;
+}
 /**
  * cp command in shell, copy the file in specified source directory to the specified destination directory with new name
  * @param source_dir    directory of file to be copied
@@ -801,6 +863,8 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 {
     // prepare buffer in memory for copying
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
+
+    reset_buffer((char*)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
 
     /* READING STAGE */
 
@@ -837,6 +901,19 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
         // read file to buffer success
         /* WRITING STAGE */
 
+        char file_name[] = EMPTY_NAME;
+        char file_ext[] = EMPTY_EXTENSION;
+        memcpy(file_name, name.word, name.length);
+        memcpy(file_ext, ext.word, ext.length);
+
+        char source_dir_name[] = "root\0\0\0\0";
+
+        if (source_dir->current_cluster_number > ROOT_CLUSTER_NUMBER)
+        {
+            memcpy(source_dir_name, source_dir->paths[source_dir->current_path_count-1], DIRECTORY_NAME_LENGTH);
+        }
+        uint32_t file_size = get_file_size(source_dir->current_cluster_number, source_dir_name, file_name, file_ext);
+
         // split source filename to name and extension
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if (splitcode == 2 || splitcode == 3)
@@ -846,13 +923,21 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
             // return;
         }
 
+        if (file_size == 0)
+        {
+            char errorMsg[] = "Error: file/folder not found.\n";
+            syscall(5, (uint32_t)errorMsg, 31, 0xF);
+
+            return 1;
+        }
+
         // prepare write file request
         struct FAT32DriverRequest write_request = {
             .buf = cl,
-            // .name = EMPTY_NAME,
+            .name = EMPTY_NAME,
             .ext = EMPTY_EXTENSION,
             .parent_cluster_number = dest_dir->current_cluster_number,
-            .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
+            .buffer_size = file_size,
         };
         memcpy(write_request.name, name.word, name.length);
         memcpy(write_request.ext, ext.word, ext.length);
