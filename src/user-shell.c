@@ -29,6 +29,7 @@ const char command_list[COMMAND_COUNT][COMMAND_MAX_SIZE] = {
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
     "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+
 };
 
 struct CurrentDirectoryInfo
@@ -639,7 +640,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     // read the file from FATtable
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
-    reset_buffer((char*) cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
+    reset_buffer((char *)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
 
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
@@ -736,7 +737,7 @@ void print_path(uint32_t cluster_number)
     }
 }
 
-uint32_t get_file_size(uint32_t current_cluster_number, char* current_folder_name, char* file_name, char* ext)
+uint32_t get_file_size(uint32_t current_cluster_number, char *current_folder_name, char *file_name, char *ext)
 {
     // return 0 if not found
 
@@ -776,7 +777,7 @@ uint32_t get_file_size(uint32_t current_cluster_number, char* current_folder_nam
     {
         for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
         {
-             entry = &dir_table[j].table[k];
+            entry = &dir_table[j].table[k];
 
             if (entry->user_attribute != UATTR_NOT_EMPTY)
                 continue;
@@ -816,7 +817,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
     // prepare buffer in memory for copying
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
 
-    reset_buffer((char*)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
+    reset_buffer((char *)cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
 
     /* READING STAGE */
 
@@ -862,7 +863,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 
         if (source_dir->current_cluster_number > ROOT_CLUSTER_NUMBER)
         {
-            memcpy(source_dir_name, source_dir->paths[source_dir->current_path_count-1], DIRECTORY_NAME_LENGTH);
+            memcpy(source_dir_name, source_dir->paths[source_dir->current_path_count - 1], DIRECTORY_NAME_LENGTH);
         }
         uint32_t file_size = get_file_size(source_dir->current_cluster_number, source_dir_name, file_name, file_ext);
 
@@ -950,10 +951,10 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
  * rm command in shell, removes the specified file in the specified directory
  * @param file_dir  directory of file to be removed
  * @param file_name name of file in the specified directory to be removed
- *
+ * @param is_recursive whether the rm command should be recursive
  * @return  -
  */
-int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name)
+int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -981,12 +982,12 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = file_dir->current_cluster_number,
     };
+
     memcpy(delete_request.name, name.word, name.length);
     memcpy(delete_request.ext, ext.word, ext.length);
 
     int8_t retcode;
-
-    syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, 0);
+    syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, is_recursive);
 
     if (retcode != 0)
     {
@@ -1023,7 +1024,7 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                              dest_name);
 
     if (res == 0)
-        rm_command(source_dir, source_name);
+        rm_command(source_dir, source_name, FALSE);
 }
 
 /**
@@ -1033,7 +1034,8 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
  *
  * @return 0 if no target found, 1 if target found
  */
-uint32_t whereis_command(struct ParseString *source_name){
+uint32_t whereis_command(struct ParseString *source_name)
+{
     // Create Search Request
     struct RequestSearch search_request = {};
 
@@ -1044,7 +1046,8 @@ uint32_t whereis_command(struct ParseString *source_name){
     syscall(7, (uint32_t)&search_request, 0, 0);
 
     // If no target found
-    if(search_request.result.n_of_items == 0){
+    if (search_request.result.n_of_items == 0)
+    {
         return 0;
     }
 
@@ -1058,7 +1061,8 @@ uint32_t whereis_command(struct ParseString *source_name){
 
     // Iterate all paths
     uint32_t idx = 0;
-    while(idx < search_request.result.n_of_items){
+    while (idx < search_request.result.n_of_items)
+    {
         // Print path directory
         print_path(search_request.result.parent_cluster_number[idx]);
 
@@ -1067,7 +1071,8 @@ uint32_t whereis_command(struct ParseString *source_name){
         syscall(5, (uint32_t)source_name, 8, 0xF);
 
         // If target is file, print dot
-        if(memcmp(search_request.result.ext[idx], "\0\0\0", 3) != 0){
+        if (memcmp(search_request.result.ext[idx], "\0\0\0", 3) != 0)
+        {
             syscall(5, (uint32_t)dot, 1, 0xF);
         }
 
@@ -1075,7 +1080,7 @@ uint32_t whereis_command(struct ParseString *source_name){
         syscall(5, (uint32_t)search_request.result.ext[idx], 3, 0xF);
         idx++;
     }
-    
+
     // Print newline to add space
     print_newline();
     print_newline();
@@ -1275,7 +1280,7 @@ int main(void)
                                 invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
 
                                 // invoke rm command
-                                rm_command(&target_dir, &target_name);
+                                rm_command(&target_dir, &target_name, FALSE);
                             }
                         }
 
@@ -1284,15 +1289,39 @@ int main(void)
                             if (word_indexes[1].length == 2 && memcmp(buf + word_indexes[1].index, "-r", 2) == 0)
                             {
                                 // PAKAI WORD_INDEXES[2] SEBAGAI INDEKS AWAL PARAMETER PATH
-                                char invalid_flag_msg[] = "Recursive rm.\n";
-                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                                struct CurrentDirectoryInfo target_dir;
+                                copy_directory_info(&target_dir, &current_directory_info);
+
+                                struct ParseString target_name = {};
+                                reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
+
+                                // get source directory info & source file name
+                                invoke_cd(buf, word_indexes + 2, &target_dir, &target_name);
+
+                                // invoke rm command
+                                rm_command(&target_dir, &target_name, TRUE);
+
+                                // char invalid_flag_msg[] = "Recursive rm.\n";
+                                // syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
                             }
 
                             else if (word_indexes[2].length == 2 && memcmp(buf + word_indexes[2].index, "-r", 2) == 0)
                             {
                                 // PAKAI WORD_INDEXES[1] SEBAGAI INDEKS AWAL PARAMETER PATH
-                                char invalid_flag_msg[] = "Recursive rm.\n";
-                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                                struct CurrentDirectoryInfo target_dir;
+                                copy_directory_info(&target_dir, &current_directory_info);
+
+                                struct ParseString target_name = {};
+                                reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
+
+                                // get source directory info & source file name
+                                invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
+
+                                // invoke rm command
+                                rm_command(&target_dir, &target_name, TRUE);
+
+                                // char invalid_flag_msg[] = "Recursive rm.\n";
+                                // syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
                             }
 
                             else if (memcmp(buf + word_indexes[1].index, "-", 1) == 0 || memcmp(buf + word_indexes[2].index, "-", 1) == 0)
@@ -1315,7 +1344,7 @@ int main(void)
                 }
 
                 else if (commandNumber == 6)
-               {
+                {
                     // mv_command
                     if (argsCount == 1)
                     {
@@ -1352,7 +1381,6 @@ int main(void)
                         syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
                     }
                 }
-                
                 else if (commandNumber == 7)
                 {
                     /* whereis Command */
@@ -1368,17 +1396,20 @@ int main(void)
                         uint32_t res = whereis_command(&find_name);
 
                         // If no target found
-                        if(!res){
+                        if (!res)
+                        {
                             char msg[] = "Target not found!\n";
                             syscall(5, (uint32_t)msg, 18, 0xF);
                         }
-                    } else {
+                    }
+                    else
+                    {
                         // If command is invalid
                         char msg[] = "Invalid command whereis!\n";
                         syscall(5, (uint32_t)msg, 25, 0xF);
                     }
                 }
-                
+
                 else if (commandNumber == 8)
                 {
                 }
