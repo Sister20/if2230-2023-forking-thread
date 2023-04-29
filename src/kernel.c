@@ -71,6 +71,10 @@ void kernel_setup(void)
     req.parent_cluster_number = ROOT_CLUSTER_NUMBER;
     write(req);
 
+    memcpy(req.name, "a\0\0\0\0\0\0\0" , 8);
+    memcpy(req.ext, "\0\0\0", 3);
+    write(req);
+
     // Write shell into memory
     struct FAT32DriverRequest request = {
         .buf = (uint8_t *)0,
