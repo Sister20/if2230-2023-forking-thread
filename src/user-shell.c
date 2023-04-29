@@ -1222,7 +1222,7 @@ int main(void)
                 }
 
                 else if (commandNumber == 6)
-                {
+               {
                     // mv_command
                     if (argsCount == 1)
                     {
@@ -1250,8 +1250,16 @@ int main(void)
 
                         // get destination directory info & source file name
                         invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
-                     }
+
+                        // invoke mv command
+                        mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                    }
+                    else
+                    {
+                        syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                    }
                 }
+                
                 else if (commandNumber == 7)
                 {
                     /* whereis Command */
@@ -1277,6 +1285,7 @@ int main(void)
                         syscall(5, (uint32_t)msg, 25, 0xF);
                     }
                 }
+                
                 else if (commandNumber == 8)
                 {
                 }
