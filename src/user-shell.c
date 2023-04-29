@@ -11,7 +11,7 @@
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 64
 #define MAX_FILE_BUFFER_CLUSTER_SIZE 512 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
-
+#define MAX_FOLDER_CLUSTER_SIZE 5
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 
@@ -313,14 +313,14 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     return 0;
                 }
-                struct ClusterBuffer cl[5];
+                struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
 
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
                     .name = "root\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
-                    .buffer_size = CLUSTER_SIZE * 5,
+                    .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
                 };
 
                 struct FAT32DirectoryTable *dir_table;
@@ -412,13 +412,13 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             return;
     }
 
-    struct ClusterBuffer cl[5];
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
     struct FAT32DriverRequest request = {
         .buf = &cl,
         .name = "root\0\0\0\0",
         .ext = "\0\0\0",
         .parent_cluster_number = temp_info.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
     };
 
     if (temp_info.current_path_count > 0)
@@ -612,11 +612,11 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         return;
 
     // read the file from FATtable
-    struct ClusterBuffer cl[255];
+    struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
         .parent_cluster_number = target_directory.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
     };
 
     struct ParseString target_filename = {};
@@ -1038,7 +1038,6 @@ int main(void)
                 else if (commandNumber == 6)
                 {
                     // mv_command
-
                     struct CurrentDirectoryInfo source_dir = {};
                     struct CurrentDirectoryInfo dest_dir = {};
 
@@ -1059,10 +1058,6 @@ int main(void)
                 }
 
                 else if (commandNumber == 7)
-                {
-                }
-
-                else if (commandNumber == 8)
                 {
                 }
             }
