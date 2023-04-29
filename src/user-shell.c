@@ -144,7 +144,11 @@ int get_command_number(char *buf, int starting_index, int command_length)
 
     for (int i = 0; i < COMMAND_COUNT; i++)
     {
-        if (memcmp(buf + starting_index, command_list[i], command_length) == 0)
+        char command[COMMAND_MAX_SIZE];
+
+        reset_buffer(command, COMMAND_MAX_SIZE);
+        memcpy(command, buf + starting_index, command_length);
+        if (memcmp(command, command_list[i], COMMAND_MAX_SIZE) == 0)
             return i;
     }
 
