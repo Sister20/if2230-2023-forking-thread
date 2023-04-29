@@ -10,7 +10,7 @@
 #define EXTENSION_NAME_LENGTH 3
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 64
-#define MAX_FILE_BUFFER_CLUSTER_SIZE 1 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
+#define MAX_FILE_BUFFER_CLUSTER_SIZE 32
 #define MAX_FOLDER_CLUSTER_SIZE 5
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
@@ -336,7 +336,7 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
                     request.parent_cluster_number = dir_table->table->cluster_low;
                 }
 
-                int32_t retcode;
+                int8_t retcode;
 
                 syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
@@ -429,7 +429,7 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
         memcpy(request.name, temp_info.paths[temp_info.current_path_count - 1], DIRECTORY_NAME_LENGTH);
     }
 
-    int32_t retcode;
+    int8_t retcode;
 
     syscall(1, (uint32_t)&request, (uint32_t)&retcode, 0);
 
@@ -763,7 +763,7 @@ void print_path(uint32_t cluster_number)
         .buffer_size = CLUSTER_SIZE * 5,
     };
 
-    int32_t retcode;
+    uint8_t retcode;
     syscall(6, (uint32_t)&read_folder_request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
@@ -822,7 +822,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
     memcpy(read_request.ext, ext.word, ext.length);
 
     // copy file to buffer memory
-    int32_t retcode;
+    int8_t retcode;
     syscall(0, (uint32_t)&read_request, (uint32_t)&retcode, 0);
 
     if (retcode == 0)
