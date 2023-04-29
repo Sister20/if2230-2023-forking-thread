@@ -501,6 +501,7 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
 
   uint16_t now_cluster_number = request.parent_cluster_number;
   uint16_t prev_cluster_number;
+  uint16_t nth_entry;
 
   while (!end_of_directory && !found_directory)
   {
@@ -512,6 +513,10 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
       if (!is_entry_empty(entry))
       {
         found_directory = is_dir_ext_name_same(entry, request);
+        if (found_directory)
+        {
+          nth_entry = i;
+        }
       }
 
       else
@@ -531,7 +536,9 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
 
     // If file is found, get out of the loop
     if (found_directory)
+    {
       continue;
+    }
 
     // Move onto the next cluster if it's not the end yet
     if (!end_of_directory)
@@ -574,7 +581,7 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
   uint16_t entry_cluster_position = entry->cluster_low;
 
   // If check recursion is false, no checking will be done
-  if (check_recursion && !is_below_max_recursion_depth(entry->cluster_low, 0))
+  if (check_recursion && !is_below_max_recursion_depth(entry_cluster_position, 0))
   {
     return 5;
   }
@@ -586,7 +593,7 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
 
   // Delete the directory itself
-  delete_subdirectory_by_entry(entry, request);
+  delete_subdirectory_by_entry(&driver_state.dir_table_buf.table[nth_entry], request);
 
   return 0;
 }
@@ -679,6 +686,9 @@ void delete_subdirectory_content(uint16_t target_cluster_number)
       {
         memcpy(&(req.name), &(entry->name), 8);
         delete (req, TRUE, FALSE);
+
+        // Reset the content of the driver state to before deletion
+        read_clusters(&driver_state.dir_table_buf, target_cluster_number, 1);
       }
       else
       {
@@ -1095,13 +1105,14 @@ bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recurs
          i++)
     {
       entry = &(driver_state.dir_table_buf.table[i]);
-      if (is_subdirectory(entry))
+      if (!is_entry_empty(entry) && is_subdirectory(entry))
       {
         // Return false if recursive checking finds the subdirectory in the directory too deep
         if (!is_below_max_recursion_depth(entry->cluster_low, recursion_count + 1))
         {
           return FALSE;
         }
+        read_clusters(&driver_state.dir_table_buf, target_cluster_number, 1);
       }
     }
 
