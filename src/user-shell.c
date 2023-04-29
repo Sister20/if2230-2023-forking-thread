@@ -1147,11 +1147,10 @@ int main(void)
 
                     else
                     {
-                        bool isFlagFound = FALSE;
 
                         if (argsCount == 2)
                         {
-                            if (isFlagFound)
+                            if (memcmp(buf+word_indexes[1].index, "-", 1) == 0)
                             {
                                 syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
                             }
@@ -1174,7 +1173,30 @@ int main(void)
 
                         else if (argsCount == 3)
                         {
+                            if(word_indexes[1].length == 2 && memcmp(buf+word_indexes[1].index, "-r", 2) == 0)
+                            {
+                                // PAKAI WORD_INDEXES[2] SEBAGAI INDEKS AWAL PARAMETER PATH
+                                char invalid_flag_msg[] = "Recursive rm.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
 
+                            else if (word_indexes[2].length == 2 && memcmp(buf+word_indexes[2].index, "-r", 2) == 0)
+                            {
+                                // PAKAI WORD_INDEXES[1] SEBAGAI INDEKS AWAL PARAMETER PATH
+                                char invalid_flag_msg[] = "Recursive rm.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
+
+                            else if (memcmp(buf+word_indexes[1].index, "-", 1) == 0 || memcmp(buf+word_indexes[2].index, "-", 1) == 0)
+                            {
+                                char invalid_flag_msg[] = "Invalid flag.\n";
+                                syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
+                            }
+
+                            else
+                            {
+                                syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                            }
                         }
 
                         else
