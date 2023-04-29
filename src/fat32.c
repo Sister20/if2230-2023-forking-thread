@@ -129,8 +129,6 @@ void initialize_filesystem_fat32(void) {
   BPlusTree = make_tree("root\0\0\0\0", "\0\0\0", 2);
   initialize_b_tree(BPlusTree, "root\0\0\0\0", 2, 2);
   
-  struct NodeFileSystem *tes = BPlusTree;
-  if(tes->leaf){}
   // Initialize static array for empty clusters
   for (int i = 0; i < CLUSTER_SIZE; i++) {
     empty_cluster_value[i] = 0;

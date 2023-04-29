@@ -639,6 +639,8 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     // read the file from FATtable
     struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
+    reset_buffer((char*) cl, CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE);
+
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
         .parent_cluster_number = target_directory.current_cluster_number,
