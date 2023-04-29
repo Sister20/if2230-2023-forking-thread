@@ -346,11 +346,12 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                 while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
                 {
-                    for (int k = 1;  k < CLUSTER_SIZE / (int) sizeof(struct FAT32DirectoryEntry) && !found; k++)
+                    for (int k = 1; k < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry) && !found; k++)
                     {
                         struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
 
-                        if (entry->user_attribute != UATTR_NOT_EMPTY) continue;
+                        if (entry->user_attribute != UATTR_NOT_EMPTY)
+                            continue;
 
                         char name[DIRECTORY_NAME_LENGTH] = "\0\0\0\0\0\0\0\0";
 
@@ -442,10 +443,11 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
         while (i < dir_table_count)
         {
-            for (int j = 1;  j < CLUSTER_SIZE / (int) sizeof(struct FAT32DirectoryEntry); j++)
+            for (int j = 1; j < CLUSTER_SIZE / (int)sizeof(struct FAT32DirectoryEntry); j++)
             {
-                if (dirTable[i].table[j].user_attribute != UATTR_NOT_EMPTY) continue;
-                
+                if (dirTable[i].table[j].user_attribute != UATTR_NOT_EMPTY)
+                    continue;
+
                 uint32_t color;
 
                 if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY)
@@ -515,13 +517,18 @@ uint8_t invoke_cd(char *buf,
     parse_path_for_cd(buf, indexes, new_path_indexes);
 
     int last_word_index = get_words_count(new_path_indexes) - 1;
-    int new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
     target_name->length = new_path_indexes[last_word_index].length;
 
     memcpy(target_name->word, buf + new_path_indexes[last_word_index].index, target_name->length);
 
-    if (get_words_count(new_path_indexes) > 1)
+    if (get_words_count(new_path_indexes) > 1 || buf[new_path_indexes[0].index - 1] == '/')
     {
+        int new_buf_length = new_path_indexes[last_word_index].index;
+        if (get_words_count(new_path_indexes) > 1)
+        {
+            new_buf_length = new_path_indexes[last_word_index - 1].index + new_path_indexes[last_word_index - 1].length;
+        }
+
         char new_buf[new_buf_length];
         for (int i = 0; i < new_buf_length; i++)
         {
@@ -956,7 +963,6 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
             char msg[] = "File/folder not found.\n";
             syscall(5, (uint32_t)msg, 24, 0xF);
         }
-
     }
 
     return retcode;
@@ -968,11 +974,12 @@ void mv_command(struct CurrentDirectoryInfo *source_dir,
                 struct ParseString *dest_name)
 {
     uint8_t res = cp_command(source_dir,
-               source_name,
-               dest_dir,
-               dest_name);
+                             source_name,
+                             dest_dir,
+                             dest_name);
 
-    if (res == 0) rm_command(source_dir, source_name);
+    if (res == 0)
+        rm_command(source_dir, source_name);
 }
 
 int main(void)
@@ -1150,7 +1157,7 @@ int main(void)
 
                         if (argsCount == 2)
                         {
-                            if (memcmp(buf+word_indexes[1].index, "-", 1) == 0)
+                            if (memcmp(buf + word_indexes[1].index, "-", 1) == 0)
                             {
                                 syscall(5, (uint32_t)missing_args_msg, 21, 0xF);
                             }
@@ -1173,21 +1180,21 @@ int main(void)
 
                         else if (argsCount == 3)
                         {
-                            if(word_indexes[1].length == 2 && memcmp(buf+word_indexes[1].index, "-r", 2) == 0)
+                            if (word_indexes[1].length == 2 && memcmp(buf + word_indexes[1].index, "-r", 2) == 0)
                             {
                                 // PAKAI WORD_INDEXES[2] SEBAGAI INDEKS AWAL PARAMETER PATH
                                 char invalid_flag_msg[] = "Recursive rm.\n";
                                 syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
                             }
 
-                            else if (word_indexes[2].length == 2 && memcmp(buf+word_indexes[2].index, "-r", 2) == 0)
+                            else if (word_indexes[2].length == 2 && memcmp(buf + word_indexes[2].index, "-r", 2) == 0)
                             {
                                 // PAKAI WORD_INDEXES[1] SEBAGAI INDEKS AWAL PARAMETER PATH
                                 char invalid_flag_msg[] = "Recursive rm.\n";
                                 syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
                             }
 
-                            else if (memcmp(buf+word_indexes[1].index, "-", 1) == 0 || memcmp(buf+word_indexes[2].index, "-", 1) == 0)
+                            else if (memcmp(buf + word_indexes[1].index, "-", 1) == 0 || memcmp(buf + word_indexes[2].index, "-", 1) == 0)
                             {
                                 char invalid_flag_msg[] = "Invalid flag.\n";
                                 syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
