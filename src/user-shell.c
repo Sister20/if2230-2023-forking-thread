@@ -947,6 +947,45 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
     return 0;
 }
 
+bool is_rm_safe(struct CurrentDirectoryInfo *target_dir, struct ParseString folder_name, struct CurrentDirectoryInfo *current_dir)
+{
+    char name[] = EMPTY_NAME;
+    memcpy(name, folder_name.word, folder_name.length);
+
+    uint16_t current_cluster_number = current_dir->current_cluster_number;
+    uint32_t path_count = current_dir->current_path_count;
+
+    if (current_cluster_number == ROOT_CLUSTER_NUMBER) return TRUE;
+
+    bool found = FALSE;
+    do
+    {
+        struct ClusterBuffer cl = {0};
+        struct FAT32DriverRequest request = {
+            .buf = &cl,
+            .name = "\0\0\0\0\0\0\0\0",
+            .ext = "\0\0\0",
+            .parent_cluster_number = current_cluster_number,
+            .buffer_size = CLUSTER_SIZE,
+        };
+        syscall(6, (uint32_t)&request, 0, 0);
+        struct FAT32DirectoryTable *dir_table = request.buf;
+        current_cluster_number = dir_table->table->cluster_low;
+        path_count--;
+        found = (current_cluster_number == target_dir->current_cluster_number) 
+            && (memcmp(current_dir->paths[path_count-1], name, DIRECTORY_NAME_LENGTH) == 0);
+    }
+
+    while(current_cluster_number != ROOT_CLUSTER_NUMBER && !found);
+
+    if (found)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 /**
  * rm command in shell, removes the specified file in the specified directory
  * @param file_dir  directory of file to be removed
@@ -1293,8 +1332,17 @@ int main(void)
                                 // get source directory info & source file name
                                 invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
 
-                                // invoke rm command
-                                rm_command(&target_dir, &target_name, FALSE);
+                                if (is_rm_safe(&target_dir, target_name, &current_directory_info))
+                                {
+                                    // invoke rm command
+                                    rm_command(&target_dir, &target_name, FALSE);
+                                }
+
+                                else
+                                {
+                                    char not_safe_msg = "Current directory is inside the folder.";
+                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                }
                             }
                         }
 
@@ -1312,9 +1360,17 @@ int main(void)
                                 // get source directory info & source file name
                                 invoke_cd(buf, word_indexes + 2, &target_dir, &target_name);
 
-                                // invoke rm command
-                                rm_command(&target_dir, &target_name, TRUE);
+                                if (is_rm_safe(&target_dir, target_name, &current_directory_info))
+                                {
+                                    // invoke rm command
+                                    rm_command(&target_dir, &target_name, TRUE);
+                                }
 
+                                else
+                                {
+                                    char not_safe_msg = "Current directory is inside the folder.";
+                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                }
                                 // char invalid_flag_msg[] = "Recursive rm.\n";
                                 // syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
                             }
@@ -1331,8 +1387,17 @@ int main(void)
                                 // get source directory info & source file name
                                 invoke_cd(buf, word_indexes + 1, &target_dir, &target_name);
 
-                                // invoke rm command
-                                rm_command(&target_dir, &target_name, TRUE);
+                                 if (is_rm_safe(&target_dir, target_name, &current_directory_info))
+                                {
+                                    // invoke rm command
+                                    rm_command(&target_dir, &target_name, TRUE);
+                                }
+
+                                else
+                                {
+                                    char not_safe_msg = "Current directory is inside the folder.";
+                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                }
 
                                 // char invalid_flag_msg[] = "Recursive rm.\n";
                                 // syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
