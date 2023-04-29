@@ -1004,13 +1004,10 @@ int main(void)
                     struct ParseString dest_name;
 
                     // get source directory info & source file name
-                    struct IndexInfo new_path_indexes[INDEXES_MAX_COUNT];
-                    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    invoke_cd(buf, word_indexes + 1, &source_dir, &source_name);
+                    invoke_cd(buf, word_indexes+1, &source_dir, &source_name);
 
                     // get destination directory info & source file name
-                    reset_indexes(new_path_indexes, INDEXES_MAX_COUNT);
-                    invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
+                    invoke_cd(buf, word_indexes+2, &dest_dir, &dest_name);
 
                     // invoke cp command
                     cp_command(&source_dir, &source_name, &dest_dir, &dest_name);
@@ -1026,10 +1023,9 @@ int main(void)
                     reset_buffer(target_name.word, SHELL_BUFFER_SIZE);
 
                     // get source directory info & source file name
-
                     invoke_cd(buf, word_indexes+1, &target_dir, &target_name);
 
-                    // invoke cp command
+                    // invoke rm command
                     rm_command(&target_dir, &target_name);
                 }
 
@@ -1052,7 +1048,7 @@ int main(void)
                     // get destination directory info & source file name
                     invoke_cd(buf, word_indexes+2, &dest_dir, &dest_name);
 
-                    // invoke cp command
+                    // invoke mv command
                     mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
                 }
 
