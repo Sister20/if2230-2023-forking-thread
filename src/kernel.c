@@ -42,7 +42,7 @@ void kernel_setup(void)
     write(req);
 
     // move parent to f1
-    req.parent_cluster_number = 0xa;
+    req.parent_cluster_number = 0xb;
 
     memcpy(req.name, "f4", 2);
     write(req);
@@ -51,12 +51,12 @@ void kernel_setup(void)
     write(req);
 
     // move parent to f1
-    req.parent_cluster_number = 0xd;
+    req.parent_cluster_number = 0xe;
 
     memcpy(req.name, "f6", 2);
     write(req);
 
-    req.parent_cluster_number = 0xf;
+    req.parent_cluster_number = 0x10;
     memcpy(req.name, "f7", 2);
     write(req);
 
