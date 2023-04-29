@@ -968,6 +968,13 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
         return 1;
     }
 
+    if (name.length == 5 && memcmp(name.word, "shell", 5) == 0 && ext.length == 0)
+    {
+        char msg[] = "Shell program can not be deleted.\n";
+        syscall(5, (uint32_t)msg, 35, 0xF);
+        return -1;
+    }
+
     // create delete request
     struct FAT32DriverRequest delete_request = {
         .name = EMPTY_NAME,
