@@ -42,6 +42,7 @@ kernel:
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/keyboard.c -o $(OUTPUT_FOLDER)/keyboard.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/fat32.c -o $(OUTPUT_FOLDER)/fat32.o
+	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/bplustree.c -o $(OUTPUT_FOLDER)/bplustree.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/disk.c -o $(OUTPUT_FOLDER)/disk.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/cmosrtc.c -o $(OUTPUT_FOLDER)/cmosrtc.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/paging.c -o $(OUTPUT_FOLDER)/paging.o
@@ -72,18 +73,23 @@ disk:
 
 inserter:
 	@$(CC) -Wno-builtin-declaration-mismatch -g \
-		$(SOURCE_FOLDER)/stdmem.c $(SOURCE_FOLDER)/fat32.c $(SOURCE_FOLDER)/cmosrtc.c $(SOURCE_FOLDER)/portio.c \
+		$(SOURCE_FOLDER)/stdmem.c $(SOURCE_FOLDER)/fat32.c $(SOURCE_FOLDER)/bplustree.c $(SOURCE_FOLDER)/cmosrtc.c $(SOURCE_FOLDER)/portio.c \
 		$(SOURCE_FOLDER)/external-inserter.c \
 		-o $(OUTPUT_FOLDER)/inserter
 
 user-shell:
 	@$(ASM) $(AFLAGS) $(SOURCE_FOLDER)/user-entry.s -o user-entry.o
-	@$(CC)  $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/user-shell.c -o user-shell.o
+	@$(CC) $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/stdmem.c -o $(OUTPUT_FOLDER)/stdmem.o
+	@$(CC) $(CFLAGS) -fno-pie $(SOURCE_FOLDER)/user-shell.c -o $(OUTPUT_FOLDER)/user-shell.o
 	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 \
-		user-entry.o user-shell.o -o $(OUTPUT_FOLDER)/shell
+		user-entry.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/stdmem.o -o $(OUTPUT_FOLDER)/shell
 	@echo Linking object shell object files and generate flat binary...
+	@$(LIN) -T $(SOURCE_FOLDER)/user-linker.ld -melf_i386 --oformat=elf32-i386\
+		user-entry.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/stdmem.o -o $(OUTPUT_FOLDER)/shell_elf
+	@echo Linking object shell object files and generate ELF32 for debugging...
 	@size --target=binary bin/shell
 	@rm -f *.o
+	@rm -f $(OUTPUT_FOLDER)/*.o
 
 insert-shell: inserter user-shell
 	@echo Inserting shell into root directory...

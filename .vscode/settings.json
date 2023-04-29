@@ -1,8 +1,24 @@
 {
     "debug.onTaskErrors": "debugAnyway",
     "files.associations": {
+        "*.pl": "prolog",
         "framebuffer.h": "c",
-        "*.h": "c"
+        "*.h": "c",
+        "array": "c",
+        "atomic": "c",
+        "*.tcc": "c",
+        "concepts": "c",
+        "type_traits": "c",
+        "istream": "c",
+        "new": "c",
+        "numeric": "c",
+        "ostream": "c",
+        "string_view": "c",
+        "system_error": "c",
+        "functional": "c",
+        "tuple": "c",
+        "typeinfo": "c",
+        "utility": "c"
     },
     "C_Cpp.errorSquiggles": "enabled",
 }

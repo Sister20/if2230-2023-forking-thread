@@ -34,11 +34,17 @@ static struct KeyboardDriverState keyboard_state = {
 
 // Activate keyboard ISR / start listen keyboard & save to buffer
 void keyboard_state_activate(void){
+    for (int i = 0; i < KEYBOARD_BUFFER_SIZE; i++)
+    {
+      keyboard_state.keyboard_buffer[i] = '\0';
+    }
+
     keyboard_state.keyboard_input_on = TRUE;
 }
 
 // Deactivate keyboard ISR / stop listening keyboard interrupt
 void keyboard_state_deactivate(void){
+
     keyboard_state.buffer_index = 0;
     keyboard_state.keyboard_input_on = FALSE;
 }
@@ -161,7 +167,7 @@ void scroll_behavior(void){
   for(uint8_t row = 1; row < 25; row++){
     for(uint8_t col = 0; col < 80; col++){
       uint8_t move = *(location + row*80 + col) & 0x00FF;
-      framebuffer_write(row-1, col, move, 0xF, 0);
+      framebuffer_write(row-1, col, move, (*(location + row*80 + col) & 0xFF00) >> 8, 0);
     }
   }
 
