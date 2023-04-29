@@ -645,7 +645,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     if (split_result != 0 && split_result != 1)
     {
-        syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
+        syscall(5, (uint32_t) "Invalid command.", 16, 0xF);
         print_newline();
         return;
     }
@@ -1129,12 +1129,12 @@ int main(void)
                     // mv_command
                     if (argsCount == 1)
                     {
-                        syscall(5, (uint32_t) "Please give the source and destination path!", 44, 0xF);
+                        syscall(5, (uint32_t) "Please give the source and destination path.", 44, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 2)
                     {
-                        syscall(5, (uint32_t) "Please give the destination path!", 33, 0xF);
+                        syscall(5, (uint32_t) "Please give the destination path.", 33, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 3)
