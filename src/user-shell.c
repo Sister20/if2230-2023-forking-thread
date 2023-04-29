@@ -204,6 +204,7 @@ int split_filename_extension(struct ParseString *filename,
 
     // parse filename to name and extension
     struct IndexInfo temp_index[INDEXES_MAX_COUNT];
+    reset_indexes(temp_index, INDEXES_MAX_COUNT);
     get_buffer_indexes(filename->word, temp_index, '.', 0, filename->length);
 
     int words_count = get_words_count(temp_index);
