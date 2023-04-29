@@ -992,25 +992,35 @@ void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_
     switch (retcode)
     {
     case 1:
+    {
         char msg[] = "File/folder not found.\n";
         syscall(5, (uint32_t)msg, 22, 0xF);
         break;
+    }
     case 2:
+    {
         char msg[] = "Folder is not empty.\n";
         syscall(5, (uint32_t)msg, 22, 0xF);
         break;
+    }
     case 4:
+    {
         char msg[] = "Invalid parent.\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
         break;
+    }
     case 5:
+    {
         char msg[] = "Exceeding maximum recursion depth.\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
         break;
+    }
     case -1:
+    {
         char msg[] = "Unknown error.\n";
         syscall(5, (uint32_t)msg, 16, 0xF);
         break;
+    }
     default:
         break;
     }
