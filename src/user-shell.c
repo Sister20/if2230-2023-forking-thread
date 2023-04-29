@@ -875,7 +875,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
         splitcode = split_filename_extension(dest_name, &name, &ext);
         if (splitcode == 2 || splitcode == 3)
         {
-            char msg[] = "Source file not found.\n";
+            char msg[] = "Source file/folder not found.\n";
             syscall(5, (uint32_t)msg, 24, 0xF);
             // return;
         }
@@ -927,7 +927,65 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
 
     else
     {
-        if (retcode == 2)
+        // find folder
+        read_request.buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE;
+
+        // copy folder to buffer memory
+        syscall(1, (uint32_t)&read_request, (uint32_t)&retcode, 0);
+
+        if (retcode == 0)
+        {
+            // read file to buffer success
+            /* WRITING STAGE */        
+
+            // split source filename to name and extension
+            splitcode = split_filename_extension(dest_name, &name, &ext);
+            if (splitcode == 2 || splitcode == 3)
+            {
+                char msg[] = "Source file/folder not found.\n";
+                syscall(5, (uint32_t)msg, 24, 0xF);
+                // return;
+            }
+
+            // prepare write file request
+            struct FAT32DriverRequest write_request = {
+                .buf = cl,
+                .name = EMPTY_NAME,
+                .ext = EMPTY_EXTENSION,
+                .parent_cluster_number = dest_dir->current_cluster_number,
+                .buffer_size = 0,
+            };
+            
+            memcpy(write_request.name, name.word, name.length);
+            memcpy(write_request.ext, ext.word, ext.length);
+
+            // copy file from memory to disk
+            syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
+
+            if (retcode)
+            {
+                if (retcode == 1)
+                {
+                    char msg[] = "File/folder already exists.\n";
+                    syscall(5, (uint32_t)msg, 29, 0xF);
+                }
+
+                else if (retcode == 3)
+                {
+                    char msg[] = "Forbidden file/folder name.\n";
+                    syscall(5, (uint32_t)msg, 29, 0xF);
+                }
+
+                else
+                {
+                    char msg[] = "Unknown error.\n";
+                    syscall(5, (uint32_t)msg, 16, 0xF);
+                }
+                return 2;
+            }
+        }
+
+        else if (retcode == 2)
         {
             char msg[] = "Not enough buffer.\n";
             syscall(5, (uint32_t)msg, 20, 0xF);
@@ -1467,8 +1525,8 @@ int main(void)
                             char not_safe_msg[] = "Working directory is inside the folder.\n";
                             syscall(5, (uint32_t)not_safe_msg, 41, 0xF);
                         }
-
                     }
+
                     else
                     {
                         syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
