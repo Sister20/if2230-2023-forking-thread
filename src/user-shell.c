@@ -1456,8 +1456,18 @@ int main(void)
                         // get destination directory info & source file name
                         invoke_cd(buf, word_indexes + 2, &dest_dir, &dest_name);
 
-                        // invoke mv command
-                        mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        if (is_rm_safe(&source_dir, source_name, &current_directory_info))
+                        {
+                            // invoke mv command
+                            mv_command(&source_dir, &source_name, &dest_dir, &dest_name);
+                        }
+
+                        else
+                        {
+                            char not_safe_msg[] = "Working directory is inside the folder.\n";
+                            syscall(5, (uint32_t)not_safe_msg, 41, 0xF);
+                        }
+
                     }
                     else
                     {
