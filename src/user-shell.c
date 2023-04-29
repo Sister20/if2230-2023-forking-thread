@@ -10,8 +10,8 @@
 #define EXTENSION_NAME_LENGTH 3
 #define INDEXES_MAX_COUNT SHELL_BUFFER_SIZE
 #define PATH_MAX_COUNT 64
-#define MAX_FILE_BUFFER_CLUSTER_SIZE 512 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
-
+#define MAX_FILE_BUFFER_CLUSTER_SIZE 1 // take arbitrary size of 512 cluster = 512 * 4 * 512 B = 1MB
+#define MAX_FOLDER_CLUSTER_SIZE 5
 #define EMPTY_EXTENSION "\0\0\0"
 #define EMPTY_NAME "\0\0\0\0\0\0\0\0"
 
@@ -313,14 +313,14 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                     return 0;
                 }
-                struct ClusterBuffer cl[5];
+                struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
 
                 struct FAT32DriverRequest request = {
                     .buf = &cl,
                     .name = "root\0\0\0\0",
                     .ext = "\0\0\0",
                     .parent_cluster_number = temp_info.current_cluster_number,
-                    .buffer_size = CLUSTER_SIZE * 5,
+                    .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
                 };
 
                 struct FAT32DirectoryTable *dir_table;
@@ -412,13 +412,13 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
             return;
     }
 
-    struct ClusterBuffer cl[5];
+    struct ClusterBuffer cl[MAX_FOLDER_CLUSTER_SIZE];
     struct FAT32DriverRequest request = {
         .buf = &cl,
         .name = "root\0\0\0\0",
         .ext = "\0\0\0",
         .parent_cluster_number = temp_info.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FOLDER_CLUSTER_SIZE,
     };
 
     if (temp_info.current_path_count > 0)
@@ -559,9 +559,9 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
     int target_name_length = new_path_indexes[get_words_count(new_path_indexes) - 1].length;
     if (target_name_length > 8)
     {
-        char msg[] = "Invalid new directory name! Maximum 8 characters!";
+        char msg[] = "Error: directory name is too long.";
 
-        syscall(5, (uint32_t)msg, 49, 0xF);
+        syscall(5, (uint32_t)msg, 34, 0xF);
         print_newline();
         return;
     }
@@ -588,6 +588,27 @@ void mkdir_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
     int32_t retcode;
     syscall(2, (uint32_t)&write_request, (uint32_t)&retcode, 0);
+
+    if (retcode == 1)
+    {
+        syscall(5, (uint32_t) "Error: folder already exist.", 28, 0xF);
+        print_newline();
+    }
+    else if (retcode == 2)
+    {
+        syscall(5, (uint32_t) "Error: invalid parent cluster.", 30, 0xF);
+        print_newline();
+    }
+    else if (retcode == 3)
+    {
+        syscall(5, (uint32_t) "Error: forbidden name.", 22, 0xF);
+        print_newline();
+    }
+    else if (retcode == -1)
+    {
+        syscall(5, (uint32_t) "Error: uknown error.", 20, 0xF);
+        print_newline();
+    }
 }
 
 /**
@@ -612,11 +633,11 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         return;
 
     // read the file from FATtable
-    struct ClusterBuffer cl[255];
+    struct ClusterBuffer cl[MAX_FILE_BUFFER_CLUSTER_SIZE];
     struct FAT32DriverRequest read_request = {
         .buf = &cl,
         .parent_cluster_number = target_directory.current_cluster_number,
-        .buffer_size = CLUSTER_SIZE * 5,
+        .buffer_size = CLUSTER_SIZE * MAX_FILE_BUFFER_CLUSTER_SIZE,
     };
 
     struct ParseString target_filename = {};
@@ -644,9 +665,29 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
         syscall(5, (uint32_t)read_request.buf, read_request.buffer_size, 0xF);
         print_newline();
     }
+    else if (retcode == 1)
+    {
+        syscall(5, (uint32_t) "Error: not a file.", 18, 0xF);
+        print_newline();
+    }
+    else if (retcode == 2)
+    {
+        syscall(5, (uint32_t) "Error: not enough buffer size.", 30, 0xF);
+        print_newline();
+    }
+    else if (retcode == 3)
+    {
+        syscall(5, (uint32_t) "Error: file not found.", 22, 0xF);
+        print_newline();
+    }
+    else if (retcode == 4)
+    {
+        syscall(5, (uint32_t) "Error: parent cluster not valid.", 31, 0xF);
+        print_newline();
+    }
     else
     {
-        syscall(5, (uint32_t) "File not found!", 15, 0xF);
+        syscall(5, (uint32_t) "Error: unknown error.", 21, 0xF);
         print_newline();
     }
 }
@@ -970,6 +1011,7 @@ int main(void)
                     if (argsCount == 1)
                     {
                         syscall(5, (uint32_t) "Please give the folder path and name!\n", 39, 0xF);
+                        print_newline();
                     }
                     else if (argsCount == 2)
                     {
@@ -978,6 +1020,7 @@ int main(void)
                     else
                     {
                         syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        print_newline();
                     }
                 }
 
@@ -986,6 +1029,7 @@ int main(void)
                     if (argsCount == 1)
                     {
                         syscall(5, (uint32_t) "Please give the file path and name!\n", 39, 0xF);
+                        print_newline();
                     }
                     else if (argsCount == 2)
                     {
@@ -994,6 +1038,7 @@ int main(void)
                     else
                     {
                         syscall(5, (uint32_t)too_many_args_msg, 20, 0xF);
+                        print_newline();
                     }
                 }
 
@@ -1039,7 +1084,7 @@ int main(void)
                     // mv_command
                     if (argsCount == 1)
                     {
-                        syscall(5, (uint32_t) "Please give the source path!", 28, 0xF);
+                        syscall(5, (uint32_t) "Please give the source and destination path!", 44, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 2)
@@ -1074,10 +1119,6 @@ int main(void)
                 }
 
                 else if (commandNumber == 7)
-                {
-                }
-
-                else if (commandNumber == 8)
                 {
                 }
             }
