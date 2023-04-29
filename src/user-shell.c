@@ -346,11 +346,11 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
 
                 while (j < dir_table->table->filesize / CLUSTER_SIZE && !found)
                 {
-                    int k = 1;
-
-                    while (k < dir_table[j].table->n_of_entries && !found)
+                    for (int k = 1;  k < CLUSTER_SIZE / (int) sizeof(struct FAT32DirectoryEntry) && !found; k++)
                     {
                         struct FAT32DirectoryEntry *entry = &dir_table[j].table[k];
+
+                        if (entry->user_attribute != UATTR_NOT_EMPTY) continue;
 
                         char name[DIRECTORY_NAME_LENGTH] = "\0\0\0\0\0\0\0\0";
 
@@ -371,8 +371,6 @@ uint8_t cd_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectory
                             temp_info.current_path_count++;
                             found = TRUE;
                         }
-
-                        k++;
                     }
 
                     j++;
@@ -444,9 +442,10 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
 
         while (i < dir_table_count)
         {
-            int j = 1;
-            while (j < dirTable[i].table->n_of_entries)
+            for (int j = 1;  j < CLUSTER_SIZE / (int) sizeof(struct FAT32DirectoryEntry); j++)
             {
+                if (dirTable[i].table[j].user_attribute != UATTR_NOT_EMPTY) continue;
+                
                 uint32_t color;
 
                 if (dirTable[i].table[j].attribute == ATTR_SUBDIRECTORY)
@@ -462,9 +461,7 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
                     syscall(5, (uint32_t)dirTable[i].table[j].ext, 3, color);
                 }
 
-                if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1)
-                    print_space();
-                j++;
+                print_space();
             }
 
             i++;
@@ -648,7 +645,7 @@ void cat_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryIn
 
     if (split_result != 0 && split_result != 1)
     {
-        syscall(5, (uint32_t) "Invalid command!", 16, 0xF);
+        syscall(5, (uint32_t) "Invalid command.", 16, 0xF);
         print_newline();
         return;
     }
@@ -891,7 +888,7 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
 
     // create delete request
     struct FAT32DriverRequest delete_request = {
-        // .name = EMPTY_NAME,
+        .name = EMPTY_NAME,
         .ext = EMPTY_EXTENSION,
         .parent_cluster_number = file_dir->current_cluster_number,
     };
@@ -1117,6 +1114,7 @@ int main(void)
 
                         else if (argsCount == 3)
                         {
+
                         }
 
                         else
@@ -1131,12 +1129,12 @@ int main(void)
                     // mv_command
                     if (argsCount == 1)
                     {
-                        syscall(5, (uint32_t) "Please give the source and destination path!", 44, 0xF);
+                        syscall(5, (uint32_t) "Please give the source and destination path.", 44, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 2)
                     {
-                        syscall(5, (uint32_t) "Please give the destination path!", 33, 0xF);
+                        syscall(5, (uint32_t) "Please give the destination path.", 33, 0xF);
                         print_newline();
                     }
                     else if (argsCount == 3)
