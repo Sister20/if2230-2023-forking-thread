@@ -442,11 +442,13 @@ int8_t write(struct FAT32DriverRequest request) {
     if (memcmp("root\0\0\0\0", request.name, 8) == 0) return 3;
 
     create_subdirectory_from_entry(new_cluster_number, entry, request);
+    BPlusTree = insert(BPlusTree, request.name, request.ext, request.parent_cluster_number);
     return 0;
   }
 
   // Create a file
   create_file_from_entry(new_cluster_number, entry, request);
+  BPlusTree = insert(BPlusTree, request.name, request.ext, request.parent_cluster_number);
   return 0;
 }
 
