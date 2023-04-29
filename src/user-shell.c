@@ -449,6 +449,15 @@ void ls_command(char *buf, struct IndexInfo *indexes, struct CurrentDirectoryInf
                 else
                     color = 0xf;
                 syscall(5, (uint32_t)dirTable[i].table[j].name, DIRECTORY_NAME_LENGTH, color);
+
+                if (dirTable[i].table[j].attribute != ATTR_SUBDIRECTORY && memcmp(dirTable[i].table[j].ext, "\0\0\0", 3) != 0)
+                {
+                    char point_str[] = ".";
+                    syscall(5, (uint32_t)point_str, 1, color);
+                    syscall(5, (uint32_t)dirTable[i].table[j].ext, 3, color);
+
+                }
+
                 if (j < dirTable[i].table->n_of_entries - 1 || i < dir_table_count - 1)
                     print_space();
                 j++;
