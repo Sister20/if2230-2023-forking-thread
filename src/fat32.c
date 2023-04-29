@@ -577,9 +577,14 @@ int8_t delete(struct FAT32DriverRequest request, bool is_recursive, bool check_r
     return 5;
   }
 
+  // Delete the directory's content
+  delete_subdirectory_content(entry->cluster_low);
+
   // Reset the read clusters to the initial state of the function
   read_clusters(&driver_state.dir_table_buf, request.parent_cluster_number, 1);
-  // Start recursive deletion
+
+  // Delete the directory itself
+  delete_subdirectory_by_entry(entry, request);
 
   return 0;
 }
@@ -1064,6 +1069,59 @@ bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recurs
     }
   }
   return TRUE;
+}
+
+void delete_subdirectory_content(uint16_t target_cluster_number)
+{
+
+  read_clusters(&driver_state.dir_table_buf, target_cluster_number, 1);
+
+  struct FAT32DriverRequest req =
+      {
+          .parent_cluster_number = target_cluster_number};
+
+  // Iterate through the directory entries and delete all
+  bool end_of_directory = FALSE;
+  struct FAT32DirectoryEntry *entry;
+
+  uint16_t now_cluster_number = target_cluster_number;
+  uint16_t prev_cluster_number;
+
+  while (!end_of_directory)
+  {
+    for (uint8_t i = 1; i < CLUSTER_SIZE / sizeof(struct FAT32DirectoryEntry);
+         i++)
+    {
+      entry = &(driver_state.dir_table_buf.table[i]);
+      if (is_subdirectory(entry))
+      {
+        delete (req, TRUE, FALSE);
+      }
+      else
+      {
+        delete_file_by_entry(entry, req);
+      }
+    }
+
+    // If the cluster_number is EOF, then we've finished examining the last
+    // cluster of the directory
+    end_of_directory = (driver_state.fat_table.cluster_map[now_cluster_number] &
+                        0x0000FFFF) == 0xFFFF;
+
+    // Take notes of the latest_cluster_number for the proper copying of
+    // directory table
+    prev_cluster_number = now_cluster_number;
+
+    // Move onto the next cluster if it's not the end yet
+    if (!end_of_directory)
+    {
+      now_cluster_number =
+          driver_state.fat_table.cluster_map[now_cluster_number];
+      req.parent_cluster_number = now_cluster_number;
+      read_clusters(&driver_state.dir_table_buf, (uint32_t)now_cluster_number,
+                    1);
+    }
+  }
 }
 
 // uint32_t read_cluster_number(char** directories, int count, uint16_t latest_parent_cluster_number) {

@@ -497,4 +497,11 @@ void set_access_datetime(struct FAT32DirectoryEntry *entry);
  */
 bool is_below_max_recursion_depth(uint16_t target_cluster_number, uint8_t recursion_count);
 
+/**
+ * @brief Delete the content of a subdirectory
+ *
+ * @param target_cluster_number the cluster number where the subdirectory is collected
+ */
+void delete_subdirectory_content(uint16_t target_cluster_number);
+
 #endif
