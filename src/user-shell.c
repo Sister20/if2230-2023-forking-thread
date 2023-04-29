@@ -954,7 +954,7 @@ uint8_t cp_command(struct CurrentDirectoryInfo *source_dir,
  * @param is_recursive whether the rm command should be recursive
  * @return  -
  */
-int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
+void rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *file_name, bool is_recursive)
 {
     struct ParseString name;
     struct ParseString ext;
@@ -966,14 +966,14 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
     {
         char msg[] = "Source file not found.\n";
         syscall(5, (uint32_t)msg, 24, 0xF);
-        return 1;
+        return;
     }
 
     if (name.length == 5 && memcmp(name.word, "shell", 5) == 0 && ext.length == 0)
     {
         char msg[] = "Shell program can not be deleted.\n";
         syscall(5, (uint32_t)msg, 35, 0xF);
-        return -1;
+        return;
     }
 
     // create delete request
@@ -989,28 +989,32 @@ int8_t rm_command(struct CurrentDirectoryInfo *file_dir, struct ParseString *fil
     int8_t retcode;
     syscall(3, (uint32_t)&delete_request, (uint32_t)&retcode, is_recursive);
 
-    if (retcode != 0)
+    switch (retcode)
     {
-        if (retcode == 2)
-        {
-            char msg[] = "Folder is not empty.\n";
-            syscall(5, (uint32_t)msg, 22, 0xF);
-        }
-
-        else if (retcode == -1)
-        {
-            char msg[] = "Unknown error.\n";
-            syscall(5, (uint32_t)msg, 16, 0xF);
-        }
-
-        else
-        {
-            char msg[] = "File/folder not found.\n";
-            syscall(5, (uint32_t)msg, 24, 0xF);
-        }
+    case 1:
+        char msg[] = "File/folder not found.\n";
+        syscall(5, (uint32_t)msg, 22, 0xF);
+        break;
+    case 2:
+        char msg[] = "Folder is not empty.\n";
+        syscall(5, (uint32_t)msg, 22, 0xF);
+        break;
+    case 4:
+        char msg[] = "Invalid parent.\n";
+        syscall(5, (uint32_t)msg, 24, 0xF);
+        break;
+    case 5:
+        char msg[] = "Exceeding maximum recursion depth.\n";
+        syscall(5, (uint32_t)msg, 24, 0xF);
+        break;
+    case -1:
+        char msg[] = "Unknown error.\n";
+        syscall(5, (uint32_t)msg, 16, 0xF);
+        break;
+    default:
+        break;
     }
-
-    return retcode;
+    return;
 }
 
 void mv_command(struct CurrentDirectoryInfo *source_dir,
