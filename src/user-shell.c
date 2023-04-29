@@ -976,8 +976,8 @@ bool is_rm_safe(struct CurrentDirectoryInfo *target_dir, struct ParseString fold
         syscall(6, (uint32_t)&request, 0, 0);
         struct FAT32DirectoryTable *dir_table = request.buf;
         current_cluster_number = dir_table->table->cluster_low;
-        path_count--;
         found = (current_cluster_number == target_dir->current_cluster_number) && (memcmp(current_dir->paths[path_count - 1], name, DIRECTORY_NAME_LENGTH) == 0);
+        path_count--;
     }
 
     while (current_cluster_number != ROOT_CLUSTER_NUMBER && !found);
@@ -1344,8 +1344,8 @@ int main(void)
 
                                 else
                                 {
-                                    char not_safe_msg[] = "Current directory is inside the folder.";
-                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                    char not_safe_msg[] = "Working directory is inside the folder.\n";
+                                    syscall(5, (uint32_t)not_safe_msg, 41, 0xF);
                                 }
                             }
                         }
@@ -1372,8 +1372,8 @@ int main(void)
 
                                 else
                                 {
-                                    char not_safe_msg[] = "Current directory is inside the folder.";
-                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                    char not_safe_msg[] = "Working directory is inside the folder.\n";
+                                    syscall(5, (uint32_t)not_safe_msg, 41, 0xF);
                                 }
                                 // char invalid_flag_msg[] = "Recursive rm.\n";
                                 // syscall(5, (uint32_t)invalid_flag_msg, 15, 0xF);
@@ -1399,8 +1399,8 @@ int main(void)
 
                                 else
                                 {
-                                    char not_safe_msg[] = "Current directory is inside the folder.";
-                                    syscall(5, (uint32_t)not_safe_msg, 40, 0xF);
+                                    char not_safe_msg[] = "Working directory is inside the folder.\n";
+                                    syscall(5, (uint32_t)not_safe_msg, 41, 0xF);
                                 }
 
                                 // char invalid_flag_msg[] = "Recursive rm.\n";
